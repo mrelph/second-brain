@@ -10,13 +10,21 @@ export interface InitCommandOptions {
 
 export async function runInitCommand(options: InitCommandOptions): Promise<void> {
   const targetDir = resolve(process.cwd(), options.directory ?? ".");
+  const scaffoldOptions =
+    options.name === undefined
+      ? {
+          targetDir,
+          force: options.force,
+          initGit: options.git
+        }
+      : {
+          targetDir,
+          projectName: options.name,
+          force: options.force,
+          initGit: options.git
+        };
 
-  const result = await scaffoldSecondBrainProject({
-    targetDir,
-    projectName: options.name,
-    force: options.force,
-    initGit: options.git
-  });
+  const result = await scaffoldSecondBrainProject(scaffoldOptions);
 
   console.log(`Initialized second-brain project in ${result.targetDir}`);
   console.log("");
@@ -32,9 +40,10 @@ export async function runInitCommand(options: InitCommandOptions): Promise<void>
 
   console.log("");
   console.log("Next steps:");
-  console.log("  1. Review AGENTS.md and adapt the schema to your workflow.");
+  console.log("  1. Review the generated schema file and customize the preserved project block if needed.");
   console.log("  2. Add source documents under sources/.");
-  console.log("  3. Commit the initial scaffold to git.");
+  console.log("  3. Re-run `second-brain schema --agent <agent>` if you want a different coding-agent target.");
+  console.log("  4. Commit the initial scaffold to git.");
 }
 
 export function parseInitArgs(args: string[]): InitCommandOptions {
@@ -45,6 +54,9 @@ export function parseInitArgs(args: string[]): InitCommandOptions {
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
+    if (arg === undefined) {
+      break;
+    }
 
     if (arg === "--force") {
       options.force = true;

@@ -1,8 +1,9 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
+import { createDefaultConfig } from "./config.ts";
+import { writeSchemaFile } from "./schema-file.ts";
 import { runGitInit } from "../utils/git.ts";
 import {
-  renderAgentsTemplate,
   renderFolderReadmeTemplate,
   renderGitKeep,
   renderIndexTemplate,
@@ -47,6 +48,10 @@ export async function scaffoldSecondBrainProject(
   await ensureTargetDirectory(options.targetDir, options.force);
 
   const projectName = options.projectName?.trim() || basename(options.targetDir);
+  const config = createDefaultConfig({
+    defaultAgent: "codex",
+    projectName
+  });
   const createdPaths: string[] = [];
 
   for (const directory of DIRECTORIES) {
@@ -57,8 +62,8 @@ export async function scaffoldSecondBrainProject(
 
   const files: FileTemplate[] = [
     {
-      path: "AGENTS.md",
-      content: renderAgentsTemplate(projectName)
+      path: ".second-brain.json",
+      content: `${JSON.stringify(config, null, 2)}\n`
     },
     {
       path: "README.md",
@@ -68,7 +73,7 @@ export async function scaffoldSecondBrainProject(
       path: "schema/README.md",
       content: renderFolderReadmeTemplate(
         "Schema",
-        "Reserved for supporting schemas, prompts, or agent-specific configuration that complements the root AGENTS.md."
+        "Reserved for supporting schemas, notes, or agent-specific configuration that complements the generated root instruction file."
       )
     },
     {
@@ -123,6 +128,14 @@ export async function scaffoldSecondBrainProject(
     await writeFile(fullPath, file.content, "utf8");
     createdPaths.push(relative(options.targetDir, fullPath));
   }
+
+  const generatedSchema = await writeSchemaFile(
+    options.targetDir,
+    config,
+    config.defaultAgent,
+    ""
+  );
+  createdPaths.push(relative(options.targetDir, generatedSchema.path));
 
   const gitInitialized = options.initGit ? await runGitInit(options.targetDir) : false;
 

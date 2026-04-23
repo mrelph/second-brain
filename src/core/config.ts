@@ -1,0 +1,163 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
+import {
+  type AgentKind,
+  type PageNamingStyle,
+  type WikiLinkStyle,
+  SCHEMA_VERSION
+} from "../templates/schema.ts";
+
+export const CONFIG_FILENAME = ".second-brain.json";
+export const CONFIG_VERSION = 1;
+
+export interface SecondBrainConfig {
+  categories: string[];
+  defaultAgent: AgentKind;
+  projectName: string;
+  schema: {
+    domain: string;
+    styleGuide: string;
+    version: number;
+  };
+  sourceHandling: {
+    mode: "leave-in-inbox" | "archive-after-ingest" | "user-directed";
+  };
+  version: number;
+  wiki: {
+    frontmatter: boolean;
+    linkStyle: WikiLinkStyle;
+    pageNaming: PageNamingStyle;
+  };
+}
+
+export interface CreateDefaultConfigOptions {
+  defaultAgent?: AgentKind;
+  projectName: string;
+}
+
+export function createDefaultConfig(
+  options: CreateDefaultConfigOptions
+): SecondBrainConfig {
+  return {
+    categories: [],
+    defaultAgent: options.defaultAgent ?? "codex",
+    projectName: options.projectName,
+    schema: {
+      domain: `${options.projectName} knowledge base`,
+      styleGuide:
+        "Concise, factual markdown with clear headings, durable page titles, and explicit cross-links.",
+      version: SCHEMA_VERSION
+    },
+    sourceHandling: {
+      mode: "user-directed"
+    },
+    version: CONFIG_VERSION,
+    wiki: {
+      frontmatter: true,
+      linkStyle: "wikilinks",
+      pageNaming: "title-case"
+    }
+  };
+}
+
+export async function findProjectRoot(startDir: string): Promise<string | null> {
+  let currentDir = resolve(startDir);
+
+  while (true) {
+    const configPath = join(currentDir, CONFIG_FILENAME);
+
+    try {
+      await readFile(configPath, "utf8");
+      return currentDir;
+    } catch {
+      const parentDir = dirname(currentDir);
+      if (parentDir === currentDir) {
+        return null;
+      }
+      currentDir = parentDir;
+    }
+  }
+}
+
+export async function loadConfig(projectRoot: string): Promise<SecondBrainConfig> {
+  const raw = await readFile(join(projectRoot, CONFIG_FILENAME), "utf8");
+  const parsed = JSON.parse(raw) as Partial<SecondBrainConfig>;
+  return normalizeConfig(projectRoot, parsed);
+}
+
+export async function saveConfig(projectRoot: string, config: SecondBrainConfig): Promise<void> {
+  await writeFile(join(projectRoot, CONFIG_FILENAME), `${JSON.stringify(config, null, 2)}\n`, "utf8");
+}
+
+export function getConfigPath(projectRoot: string): string {
+  return join(projectRoot, CONFIG_FILENAME);
+}
+
+export function normalizeConfig(
+  projectRoot: string,
+  config: Partial<SecondBrainConfig>
+): SecondBrainConfig {
+  const projectName = cleanString(config.projectName) || basename(projectRoot);
+
+  return {
+    categories: Array.isArray(config.categories)
+      ? config.categories
+          .map((value) => String(value).trim())
+          .filter((value, index, values) => value.length > 0 && values.indexOf(value) === index)
+      : [],
+    defaultAgent: isAgentKind(config.defaultAgent) ? config.defaultAgent : "codex",
+    projectName,
+    schema: {
+      domain: cleanString(config.schema?.domain) || `${projectName} knowledge base`,
+      styleGuide:
+        cleanString(config.schema?.styleGuide) ||
+        "Concise, factual markdown with clear headings, durable page titles, and explicit cross-links.",
+      version:
+        typeof config.schema?.version === "number" ? config.schema.version : SCHEMA_VERSION
+    },
+    sourceHandling: {
+      mode: isSourceMode(config.sourceHandling?.mode)
+        ? config.sourceHandling.mode
+        : "user-directed"
+    },
+    version: typeof config.version === "number" ? config.version : CONFIG_VERSION,
+    wiki: {
+      frontmatter:
+        typeof config.wiki?.frontmatter === "boolean" ? config.wiki.frontmatter : true,
+      linkStyle: isWikiLinkStyle(config.wiki?.linkStyle) ? config.wiki.linkStyle : "wikilinks",
+      pageNaming: isPageNamingStyle(config.wiki?.pageNaming)
+        ? config.wiki.pageNaming
+        : "title-case"
+    }
+  };
+}
+
+function isAgentKind(value: unknown): value is AgentKind {
+  return (
+    value === "codex" ||
+    value === "claude-code" ||
+    value === "opencode" ||
+    value === "pi" ||
+    value === "generic"
+  );
+}
+
+function isWikiLinkStyle(value: unknown): value is WikiLinkStyle {
+  return value === "wikilinks" || value === "markdown";
+}
+
+function isPageNamingStyle(value: unknown): value is PageNamingStyle {
+  return value === "title-case" || value === "sentence-case" || value === "kebab-case";
+}
+
+function isSourceMode(
+  value: unknown
+): value is SecondBrainConfig["sourceHandling"]["mode"] {
+  return (
+    value === "leave-in-inbox" || value === "archive-after-ingest" || value === "user-directed"
+  );
+}
+
+function cleanString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}

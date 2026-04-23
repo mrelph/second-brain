@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
+import { parseConfigArgs, runConfigCommand } from "./commands/config.ts";
 import { parseInitArgs, runInitCommand } from "./commands/init.ts";
+import { parseSchemaArgs, runSchemaCommand } from "./commands/schema.ts";
+import { parseUpgradeArgs, runUpgradeCommand } from "./commands/upgrade.ts";
 
 async function main(argv: string[]): Promise<void> {
   const [command, ...rest] = argv;
@@ -20,6 +23,21 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "schema") {
+    await runSchemaCommand(parseSchemaArgs(rest));
+    return;
+  }
+
+  if (command === "upgrade") {
+    await runUpgradeCommand(parseUpgradeArgs(rest));
+    return;
+  }
+
+  if (command === "config") {
+    await runConfigCommand(parseConfigArgs(rest));
+    return;
+  }
+
   throw new Error(`Unknown command: ${command}`);
 }
 
@@ -30,11 +48,15 @@ function printHelp(): void {
   console.log("");
   console.log("Usage:");
   console.log("  second-brain init [directory] [--name <name>] [--force] [--no-git]");
+  console.log("  second-brain schema [--agent <codex|claude-code|opencode|pi|generic>] [options]");
+  console.log("  second-brain upgrade [--agent <codex|claude-code|opencode|pi|generic>] [--dry-run]");
+  console.log("  second-brain config [show|get|set|init] [...]");
   console.log("");
-  console.log("Planned commands:");
-  console.log("  ingest   Process a new source into the wiki layer");
-  console.log("  query    Answer questions from the wiki layer");
-  console.log("  lint     Check wiki health and structure");
+  console.log("Commands:");
+  console.log("  init     Scaffold a second-brain repository");
+  console.log("  schema   Generate agent instructions for wiki maintenance");
+  console.log("  upgrade  Refresh managed schema instructions to the latest version");
+  console.log("  config   Manage .second-brain.json project settings");
 }
 
 main(process.argv.slice(2)).catch((error: unknown) => {
