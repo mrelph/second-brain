@@ -1,0 +1,33 @@
+{
+  "name": "second-brain",
+  "version": "0.1.0",
+  "description": "CLI for building and maintaining an LLM Wiki-style personal knowledge base.",
+  "type": "module",
+  "bin": {
+    "second-brain": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "dev": "node --experimental-strip-types src/cli.ts"
+  },
+  "engines": {
+    "node": ">=20.10.0"
+  },
+  "keywords": [
+    "cli",
+    "knowledge-base",
+    "markdown",
+    "obsidian",
+    "wiki",
+    "llm"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "typescript": "^5.9.3"
+  }
+}
