@@ -1,4 +1,4 @@
-export type AgentKind = "codex" | "claude-code" | "opencode" | "pi" | "generic";
+export type AgentKind = "codex" | "claude-code" | "kiro" | "opencode" | "pi" | "generic";
 export type WikiLinkStyle = "wikilinks" | "markdown";
 export type PageNamingStyle = "title-case" | "sentence-case" | "kebab-case";
 
@@ -37,6 +37,7 @@ export function getSchemaFilename(agent: AgentKind): string {
     case "opencode":
       return "OPENCODE.md";
     case "codex":
+    case "kiro":
     case "generic":
       return "AGENTS.md";
   }
@@ -48,6 +49,8 @@ export function getAgentDisplayName(agent: AgentKind): string {
       return "Codex";
     case "claude-code":
       return "Claude Code";
+    case "kiro":
+      return "Kiro";
     case "opencode":
       return "OpenCode";
     case "pi":
@@ -250,6 +253,12 @@ function renderAgentConventions(agent: AgentKind): string[] {
         "- This repository uses `CLAUDE.md` as the primary instruction file for Claude Code.",
         "- For larger ingest or cleanup passes, sketch a short execution plan and then perform the edits directly.",
         "- Keep the final terminal summary brief and push durable detail into markdown files."
+      ];
+    case "kiro":
+      return [
+        "- This repository uses `AGENTS.md` as the primary instruction file for Kiro.",
+        "- Keep markdown portable and editor-agnostic — the wiki should survive if the user switches tools.",
+        "- For structural decisions, record them in `wiki/decisions.md` so they persist across Kiro sessions and any steering rules you may also be reading."
       ];
     case "opencode":
       return [

@@ -25,6 +25,7 @@ export interface InitCommandOptions {
 const AGENT_CHOICES: readonly AgentKind[] = [
   "claude-code",
   "codex",
+  "kiro",
   "opencode",
   "pi",
   "generic"

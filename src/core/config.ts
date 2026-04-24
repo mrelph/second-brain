@@ -157,6 +157,7 @@ export function isAgentKind(value: unknown): value is AgentKind {
   return (
     value === "codex" ||
     value === "claude-code" ||
+    value === "kiro" ||
     value === "opencode" ||
     value === "pi" ||
     value === "generic"
