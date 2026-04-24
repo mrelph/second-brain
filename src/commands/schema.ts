@@ -2,13 +2,19 @@ import { basename, resolve } from "node:path";
 import {
   createDefaultConfig,
   findProjectRoot,
+  isConfigMissingError,
   loadConfig,
+  parseAgentKind,
   saveConfig,
   type SecondBrainConfig
 } from "../core/config.ts";
 import { readSchemaState, writeSchemaFile } from "../core/schema-file.ts";
-import { type AgentKind } from "../templates/schema.ts";
-import { prompt } from "../utils/prompt.ts";
+import {
+  getAgentDisplayName,
+  getSchemaFilename,
+  type AgentKind
+} from "../templates/schema.ts";
+import { closePrompts, prompt } from "../utils/prompt.ts";
 
 export interface SchemaCommandOptions {
   agent?: AgentKind;
@@ -24,6 +30,14 @@ export interface SchemaCommandOptions {
 }
 
 export async function runSchemaCommand(options: SchemaCommandOptions): Promise<void> {
+  try {
+    await runSchemaCommandInner(options);
+  } finally {
+    closePrompts();
+  }
+}
+
+async function runSchemaCommandInner(options: SchemaCommandOptions): Promise<void> {
   const baseDir = resolve(process.cwd(), options.directory ?? ".");
   const projectRoot = (await findProjectRoot(baseDir)) ?? baseDir;
   const config = await loadConfigOrDefault(projectRoot);
@@ -66,8 +80,16 @@ export async function runSchemaCommand(options: SchemaCommandOptions): Promise<v
   );
   await saveConfig(projectRoot, nextConfig);
 
-  console.log(`Generated ${generated.path}`);
+  const assistantName = getAgentDisplayName(agent);
+  const fileName = getSchemaFilename(agent);
+  console.log("");
+  console.log(`Wrote ${generated.path}`);
+  console.log(`  This is the instruction file ${assistantName} reads when you work in this folder.`);
   console.log(`Updated ${resolve(projectRoot, ".second-brain.json")}`);
+  console.log("  Your knowledge base settings (domain, style, link format, etc.).");
+  console.log("");
+  console.log(`Tip: edit the "Project Customizations" section of ${fileName} to add your own`);
+  console.log("guidance — it's preserved across upgrades.");
 }
 
 export function parseSchemaArgs(args: string[]): SchemaCommandOptions {
@@ -87,13 +109,13 @@ export function parseSchemaArgs(args: string[]): SchemaCommandOptions {
     }
 
     if (arg === "--agent") {
-      options.agent = parseAgent(nextArg(args, index, "--agent"));
+      options.agent = parseAgentKind(nextArg(args, index, "--agent"));
       index += 1;
       continue;
     }
 
     if (arg.startsWith("--agent=")) {
-      options.agent = parseAgent(arg.slice("--agent=".length));
+      options.agent = parseAgentKind(arg.slice("--agent=".length));
       continue;
     }
 
@@ -192,27 +214,16 @@ export function parseSchemaArgs(args: string[]): SchemaCommandOptions {
 async function loadConfigOrDefault(projectRoot: string): Promise<SecondBrainConfig> {
   try {
     return await loadConfig(projectRoot);
-  } catch {
-    return createDefaultConfig({ projectName: basename(projectRoot), defaultAgent: "codex" });
+  } catch (error: unknown) {
+    if (isConfigMissingError(error)) {
+      return createDefaultConfig({ projectName: basename(projectRoot), defaultAgent: "codex" });
+    }
+    throw error;
   }
 }
 
 async function promptForAgent(defaultAgent: AgentKind): Promise<AgentKind> {
-  return parseAgent(await prompt("Target agent", defaultAgent));
-}
-
-function parseAgent(value: string): AgentKind {
-  if (
-    value === "codex" ||
-    value === "claude-code" ||
-    value === "opencode" ||
-    value === "pi" ||
-    value === "generic"
-  ) {
-    return value;
-  }
-
-  throw new Error(`Invalid agent: ${value}`);
+  return parseAgentKind(await prompt("Target agent", defaultAgent));
 }
 
 function parsePageNaming(value: string): SecondBrainConfig["wiki"]["pageNaming"] {
@@ -244,7 +255,7 @@ function parseCategories(value: string): string[] {
 
 function nextArg(args: string[], index: number, flag: string): string {
   const value = args[index + 1];
-  if (!value) {
+  if (value === undefined) {
     throw new Error(`Missing value for ${flag}`);
   }
   return value;

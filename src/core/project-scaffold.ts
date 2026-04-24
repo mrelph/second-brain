@@ -1,19 +1,22 @@
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
-import { createDefaultConfig } from "./config.ts";
+import { CONFIG_FILENAME, createDefaultConfig } from "./config.ts";
 import { writeSchemaFile } from "./schema-file.ts";
 import { runGitInit } from "../utils/git.ts";
+import { type AgentKind, type WikiLinkStyle } from "../templates/schema.ts";
 import {
   renderFolderReadmeTemplate,
-  renderGitKeep,
   renderIndexTemplate,
   renderLogTemplate,
   renderWorkspaceReadmeTemplate
 } from "../templates/project.ts";
 
 export interface ScaffoldOptions {
+  defaultAgent?: AgentKind;
+  domain?: string;
   force: boolean;
   initGit: boolean;
+  linkStyle?: WikiLinkStyle;
   projectName?: string;
   targetDir: string;
 }
@@ -49,8 +52,10 @@ export async function scaffoldSecondBrainProject(
 
   const projectName = options.projectName?.trim() || basename(options.targetDir);
   const config = createDefaultConfig({
-    defaultAgent: "codex",
-    projectName
+    defaultAgent: options.defaultAgent ?? "codex",
+    projectName,
+    ...(options.domain ? { domain: options.domain } : {}),
+    ...(options.linkStyle ? { linkStyle: options.linkStyle } : {})
   });
   const createdPaths: string[] = [];
 
@@ -78,7 +83,7 @@ export async function scaffoldSecondBrainProject(
     },
     {
       path: "wiki/index.md",
-      content: renderIndexTemplate(projectName)
+      content: renderIndexTemplate(projectName, config.wiki.linkStyle)
     },
     {
       path: "wiki/log.md",
@@ -107,19 +112,19 @@ export async function scaffoldSecondBrainProject(
     },
     {
       path: "sources/inbox/.gitkeep",
-      content: renderGitKeep()
+      content: ""
     },
     {
       path: "sources/archive/.gitkeep",
-      content: renderGitKeep()
+      content: ""
     },
     {
       path: "wiki/drafts/.gitkeep",
-      content: renderGitKeep()
+      content: ""
     },
     {
       path: "wiki/assets/.gitkeep",
-      content: renderGitKeep()
+      content: ""
     }
   ];
 
@@ -154,6 +159,26 @@ async function ensureTargetDirectory(targetDir: string, force: boolean): Promise
     throw new Error(
       `Target directory is not empty: ${targetDir}. Use --force to initialize anyway.`
     );
+  }
+
+  if (await pathExists(join(targetDir, CONFIG_FILENAME))) {
+    throw new Error(
+      `${CONFIG_FILENAME} already exists in ${targetDir}. ` +
+        `Refusing to overwrite an existing second-brain project. ` +
+        `Use \`second-brain config\` to edit settings, or delete ${CONFIG_FILENAME} first if you truly want to reinitialize.`
+    );
+  }
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return false;
+    }
+    throw error;
   }
 }
 

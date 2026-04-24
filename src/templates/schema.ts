@@ -8,6 +8,12 @@ export const MANAGED_END = "<!-- second-brain:schema:end -->";
 export const CUSTOM_START = "<!-- second-brain:custom:start -->";
 export const CUSTOM_END = "<!-- second-brain:custom:end -->";
 
+export const DEFAULT_CUSTOM_BLOCK_BODY = [
+  "## Project Customizations",
+  "",
+  "Add project-specific instructions here. `second-brain upgrade` preserves this block when possible."
+].join("\n");
+
 export interface AgentSchemaTemplateOptions {
   agent: AgentKind;
   customCategories: string[];
@@ -64,9 +70,7 @@ export function renderAgentSchemaTemplate(options: AgentSchemaTemplateOptions): 
     MANAGED_END,
     "",
     CUSTOM_START,
-    "## Project Customizations",
-    "",
-    "Add project-specific instructions here. `second-brain upgrade` preserves this block when possible.",
+    DEFAULT_CUSTOM_BLOCK_BODY,
     CUSTOM_END,
     ""
   ].join("\n");

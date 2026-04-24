@@ -12,7 +12,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
-    "dev": "node --experimental-strip-types src/cli.ts"
+    "dev": "node --experimental-strip-types src/cli.ts",
+    "prepare": "npm run build",
+    "build:bin": "npm run build:bin:macos-arm64 && npm run build:bin:macos-x64 && npm run build:bin:linux-x64 && npm run build:bin:linux-arm64 && npm run build:bin:windows-x64",
+    "build:bin:macos-arm64": "bun build --compile --minify --target=bun-darwin-arm64 --define process.env.SB_BUILD_VERSION=\"\\\"$npm_package_version\\\"\" src/cli.ts --outfile dist-bin/second-brain-macos-arm64",
+    "build:bin:macos-x64": "bun build --compile --minify --target=bun-darwin-x64 --define process.env.SB_BUILD_VERSION=\"\\\"$npm_package_version\\\"\" src/cli.ts --outfile dist-bin/second-brain-macos-x64",
+    "build:bin:linux-x64": "bun build --compile --minify --target=bun-linux-x64 --define process.env.SB_BUILD_VERSION=\"\\\"$npm_package_version\\\"\" src/cli.ts --outfile dist-bin/second-brain-linux-x64",
+    "build:bin:linux-arm64": "bun build --compile --minify --target=bun-linux-arm64 --define process.env.SB_BUILD_VERSION=\"\\\"$npm_package_version\\\"\" src/cli.ts --outfile dist-bin/second-brain-linux-arm64",
+    "build:bin:windows-x64": "bun build --compile --minify --target=bun-windows-x64 --define process.env.SB_BUILD_VERSION=\"\\\"$npm_package_version\\\"\" src/cli.ts --outfile dist-bin/second-brain-windows-x64.exe"
   },
   "engines": {
     "node": ">=20.10.0"

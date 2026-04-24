@@ -21,7 +21,16 @@ export function renderWorkspaceReadmeTemplate(projectName: string): string {
   ].join("\n");
 }
 
-export function renderIndexTemplate(projectName: string): string {
+export function renderIndexTemplate(
+  projectName: string,
+  linkStyle: "wikilinks" | "markdown" = "wikilinks"
+): string {
+  const useWikilinks = linkStyle === "wikilinks";
+  const logLink = useWikilinks ? "[[log]]" : "[log](log.md)";
+  const entitiesLink = useWikilinks ? "[[entities/README|Entities]]" : "[Entities](entities/README.md)";
+  const conceptsLink = useWikilinks ? "[[concepts/README|Concepts]]" : "[Concepts](concepts/README.md)";
+  const topicsLink = useWikilinks ? "[[topics/README|Topics]]" : "[Topics](topics/README.md)";
+
   return [
     `# ${projectName} Index`,
     "",
@@ -29,13 +38,13 @@ export function renderIndexTemplate(projectName: string): string {
     "",
     "## Core Pages",
     "",
-    "- [[log]]",
+    `- ${logLink}`,
     "",
     "## Areas",
     "",
-    "- [[entities/README|Entities]]",
-    "- [[concepts/README|Concepts]]",
-    "- [[topics/README|Topics]]",
+    `- ${entitiesLink}`,
+    `- ${conceptsLink}`,
+    `- ${topicsLink}`,
     "",
     "## Open Questions",
     "",
@@ -63,8 +72,4 @@ export function renderLogTemplate(): string {
 
 export function renderFolderReadmeTemplate(title: string, description: string): string {
   return [`# ${title}`, "", description, ""].join("\n");
-}
-
-export function renderGitKeep(): string {
-  return "";
 }

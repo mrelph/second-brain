@@ -32,6 +32,8 @@ export interface SecondBrainConfig {
 
 export interface CreateDefaultConfigOptions {
   defaultAgent?: AgentKind;
+  domain?: string;
+  linkStyle?: WikiLinkStyle;
   projectName: string;
 }
 
@@ -43,7 +45,7 @@ export function createDefaultConfig(
     defaultAgent: options.defaultAgent ?? "codex",
     projectName: options.projectName,
     schema: {
-      domain: `${options.projectName} knowledge base`,
+      domain: options.domain?.trim() || `${options.projectName} knowledge base`,
       styleGuide:
         "Concise, factual markdown with clear headings, durable page titles, and explicit cross-links.",
       version: SCHEMA_VERSION
@@ -54,7 +56,7 @@ export function createDefaultConfig(
     version: CONFIG_VERSION,
     wiki: {
       frontmatter: true,
-      linkStyle: "wikilinks",
+      linkStyle: options.linkStyle ?? "wikilinks",
       pageNaming: "title-case"
     }
   };
@@ -80,9 +82,20 @@ export async function findProjectRoot(startDir: string): Promise<string | null> 
 }
 
 export async function loadConfig(projectRoot: string): Promise<SecondBrainConfig> {
-  const raw = await readFile(join(projectRoot, CONFIG_FILENAME), "utf8");
-  const parsed = JSON.parse(raw) as Partial<SecondBrainConfig>;
+  const configPath = join(projectRoot, CONFIG_FILENAME);
+  const raw = await readFile(configPath, "utf8");
+  let parsed: Partial<SecondBrainConfig>;
+  try {
+    parsed = JSON.parse(raw) as Partial<SecondBrainConfig>;
+  } catch (error: unknown) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid JSON in ${configPath}: ${detail}`);
+  }
   return normalizeConfig(projectRoot, parsed);
+}
+
+export function isConfigMissingError(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException | null)?.code === "ENOENT";
 }
 
 export async function saveConfig(projectRoot: string, config: SecondBrainConfig): Promise<void> {
@@ -132,7 +145,7 @@ export function normalizeConfig(
   };
 }
 
-function isAgentKind(value: unknown): value is AgentKind {
+export function isAgentKind(value: unknown): value is AgentKind {
   return (
     value === "codex" ||
     value === "claude-code" ||
@@ -140,6 +153,13 @@ function isAgentKind(value: unknown): value is AgentKind {
     value === "pi" ||
     value === "generic"
   );
+}
+
+export function parseAgentKind(value: string, context = "agent"): AgentKind {
+  if (isAgentKind(value)) {
+    return value;
+  }
+  throw new Error(`Invalid ${context}: ${value}`);
 }
 
 function isWikiLinkStyle(value: unknown): value is WikiLinkStyle {

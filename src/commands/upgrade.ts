@@ -2,7 +2,9 @@ import { basename, relative, resolve } from "node:path";
 import {
   createDefaultConfig,
   findProjectRoot,
+  isConfigMissingError,
   loadConfig,
+  parseAgentKind,
   saveConfig,
   type SecondBrainConfig
 } from "../core/config.ts";
@@ -12,16 +14,31 @@ import {
   readSchemaState,
   writeSchemaFile
 } from "../core/schema-file.ts";
-import { type AgentKind, SCHEMA_VERSION } from "../templates/schema.ts";
+import {
+  getAgentDisplayName,
+  getSchemaFilename,
+  type AgentKind,
+  SCHEMA_VERSION
+} from "../templates/schema.ts";
 import { renderLineDiff } from "../utils/diff.ts";
+import { closePrompts, prompt } from "../utils/prompt.ts";
 
 export interface UpgradeCommandOptions {
   agent?: AgentKind;
   directory?: string;
   dryRun: boolean;
+  yes: boolean;
 }
 
 export async function runUpgradeCommand(options: UpgradeCommandOptions): Promise<void> {
+  try {
+    await runUpgradeCommandInner(options);
+  } finally {
+    closePrompts();
+  }
+}
+
+async function runUpgradeCommandInner(options: UpgradeCommandOptions): Promise<void> {
   const baseDir = resolve(process.cwd(), options.directory ?? ".");
   const projectRoot = (await findProjectRoot(baseDir)) ?? baseDir;
   const config = await loadConfigOrDefault(projectRoot);
@@ -31,11 +48,21 @@ export async function runUpgradeCommand(options: UpgradeCommandOptions): Promise
   const nextContent = applyCustomBlock(generated.content, schemaState.customContent);
   const previousContent = schemaState.currentContent ?? "";
 
-  console.log(
-    schemaState.version === null
-      ? `Current schema version: legacy/unversioned. Latest: ${SCHEMA_VERSION}.`
-      : `Current schema version: ${schemaState.version}. Latest: ${SCHEMA_VERSION}.`
-  );
+  const fileName = getSchemaFilename(agent);
+  const assistantName = getAgentDisplayName(agent);
+
+  console.log(`Your ${assistantName} instructions (${fileName}) are on version ${
+    schemaState.version === null ? "an older, unversioned release" : schemaState.version
+  }.`);
+  console.log(`Latest available: version ${SCHEMA_VERSION}.`);
+  console.log("");
+
+  if (previousContent === nextContent && schemaState.version === SCHEMA_VERSION) {
+    console.log(`${fileName} is already up to date — nothing to change.`);
+    return;
+  }
+
+  console.log("Here's what would change (your \"Project Customizations\" section is preserved):");
   console.log("");
   console.log(
     renderLineDiff(
@@ -48,7 +75,12 @@ export async function runUpgradeCommand(options: UpgradeCommandOptions): Promise
 
   if (options.dryRun) {
     console.log("");
-    console.log("Dry run only. No files changed.");
+    console.log("Dry run — no files changed.");
+    return;
+  }
+
+  if (!options.yes && !(await confirm("Apply these changes?"))) {
+    console.log("No changes made.");
     return;
   }
 
@@ -64,12 +96,18 @@ export async function runUpgradeCommand(options: UpgradeCommandOptions): Promise
 
   await saveConfig(projectRoot, nextConfig);
   console.log("");
-  console.log(`Upgraded ${written.path}`);
+  console.log(`Updated ${written.path} to version ${SCHEMA_VERSION}. Your customizations are intact.`);
+}
+
+async function confirm(question: string): Promise<boolean> {
+  const answer = (await prompt(`${question} [y/N]`)).toLowerCase();
+  return answer === "y" || answer === "yes";
 }
 
 export function parseUpgradeArgs(args: string[]): UpgradeCommandOptions {
   const options: UpgradeCommandOptions = {
-    dryRun: false
+    dryRun: false,
+    yes: false
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -83,14 +121,19 @@ export function parseUpgradeArgs(args: string[]): UpgradeCommandOptions {
       continue;
     }
 
+    if (arg === "--yes" || arg === "-y") {
+      options.yes = true;
+      continue;
+    }
+
     if (arg === "--agent") {
-      options.agent = parseAgent(nextArg(args, index, "--agent"));
+      options.agent = parseAgentKind(nextArg(args, index, "--agent"));
       index += 1;
       continue;
     }
 
     if (arg.startsWith("--agent=")) {
-      options.agent = parseAgent(arg.slice("--agent=".length));
+      options.agent = parseAgentKind(arg.slice("--agent=".length));
       continue;
     }
 
@@ -114,28 +157,17 @@ export function parseUpgradeArgs(args: string[]): UpgradeCommandOptions {
 async function loadConfigOrDefault(projectRoot: string): Promise<SecondBrainConfig> {
   try {
     return await loadConfig(projectRoot);
-  } catch {
-    return createDefaultConfig({ projectName: basename(projectRoot), defaultAgent: "codex" });
+  } catch (error: unknown) {
+    if (isConfigMissingError(error)) {
+      return createDefaultConfig({ projectName: basename(projectRoot), defaultAgent: "codex" });
+    }
+    throw error;
   }
-}
-
-function parseAgent(value: string): AgentKind {
-  if (
-    value === "codex" ||
-    value === "claude-code" ||
-    value === "opencode" ||
-    value === "pi" ||
-    value === "generic"
-  ) {
-    return value;
-  }
-
-  throw new Error(`Invalid agent: ${value}`);
 }
 
 function nextArg(args: string[], index: number, flag: string): string {
   const value = args[index + 1];
-  if (!value) {
+  if (value === undefined) {
     throw new Error(`Missing value for ${flag}`);
   }
   return value;

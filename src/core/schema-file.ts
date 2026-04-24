@@ -87,18 +87,21 @@ export async function writeSchemaFile(
 
 export function applyCustomBlock(content: string, customContent: string): string {
   const trimmed = customContent.trim();
+  const startIndex = content.indexOf(CUSTOM_START);
+  const endIndex = content.indexOf(CUSTOM_END);
+  const markersValid = startIndex !== -1 && endIndex !== -1 && endIndex > startIndex;
+
   if (!trimmed) {
     return content;
   }
 
-  const replacement = [CUSTOM_START, trimmed, CUSTOM_END].join("\n");
-  const startIndex = content.indexOf(CUSTOM_START);
-  const endIndex = content.indexOf(CUSTOM_END);
-
-  if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
-    return content;
+  if (!markersValid) {
+    throw new Error(
+      "Generated schema file is missing custom-content markers; refusing to drop preserved customizations."
+    );
   }
 
+  const replacement = [CUSTOM_START, trimmed, CUSTOM_END].join("\n");
   return `${content.slice(0, startIndex)}${replacement}${content.slice(endIndex + CUSTOM_END.length)}`;
 }
 

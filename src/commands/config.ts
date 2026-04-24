@@ -3,12 +3,13 @@ import {
   createDefaultConfig,
   findProjectRoot,
   getConfigPath,
+  isConfigMissingError,
   loadConfig,
+  parseAgentKind as parseAgentKindCore,
   saveConfig,
   type SecondBrainConfig
 } from "../core/config.ts";
-import { type AgentKind } from "../templates/schema.ts";
-import { prompt } from "../utils/prompt.ts";
+import { closePrompts, prompt } from "../utils/prompt.ts";
 
 export interface ConfigCommandOptions {
   action: "show" | "get" | "set" | "init";
@@ -18,6 +19,14 @@ export interface ConfigCommandOptions {
 }
 
 export async function runConfigCommand(options: ConfigCommandOptions): Promise<void> {
+  try {
+    await runConfigCommandInner(options);
+  } finally {
+    closePrompts();
+  }
+}
+
+async function runConfigCommandInner(options: ConfigCommandOptions): Promise<void> {
   const baseDir = resolve(process.cwd(), options.directory ?? ".");
   const projectRoot = (await findProjectRoot(baseDir)) ?? baseDir;
 
@@ -121,7 +130,10 @@ export function parseConfigArgs(args: string[]): ConfigCommandOptions {
 async function loadOrCreate(projectRoot: string): Promise<SecondBrainConfig> {
   try {
     return await loadConfig(projectRoot);
-  } catch {
+  } catch (error: unknown) {
+    if (!isConfigMissingError(error)) {
+      throw error;
+    }
     const config = createDefaultConfig({ projectName: basename(projectRoot), defaultAgent: "codex" });
     await saveConfig(projectRoot, config);
     return config;
@@ -210,18 +222,8 @@ function writeConfigValue(
   }
 }
 
-function parseAgentKind(value: string): AgentKind {
-  if (
-    value === "codex" ||
-    value === "claude-code" ||
-    value === "opencode" ||
-    value === "pi" ||
-    value === "generic"
-  ) {
-    return value;
-  }
-
-  throw new Error(`Invalid defaultAgent: ${value}`);
+function parseAgentKind(value: string): ReturnType<typeof parseAgentKindCore> {
+  return parseAgentKindCore(value, "defaultAgent");
 }
 
 function parseLinkStyle(value: string): SecondBrainConfig["wiki"]["linkStyle"] {

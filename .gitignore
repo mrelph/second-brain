@@ -1,8 +1,8 @@
 node_modules/
 dist/
+dist-bin/
 *.tsbuildinfo
 .DS_Store
 Thumbs.db
 .env
-.codex/
 .codex/
