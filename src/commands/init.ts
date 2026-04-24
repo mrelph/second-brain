@@ -10,9 +10,11 @@ import {
 import { closePrompts, prompt } from "../utils/prompt.ts";
 
 export interface InitCommandOptions {
+  commonQueries?: string[];
   defaultAgent?: AgentKind;
   directory?: string;
   domain?: string;
+  entityTypes?: string[];
   force: boolean;
   git: boolean;
   interactive?: boolean;
@@ -43,6 +45,8 @@ async function runInitCommandInner(options: InitCommandOptions): Promise<void> {
     options.defaultAgent === undefined &&
     options.linkStyle === undefined &&
     options.domain === undefined &&
+    options.entityTypes === undefined &&
+    options.commonQueries === undefined &&
     options.directory === undefined;
   const useWizard = wizardRequested || (noFlagsPassed && Boolean(process.stdin.isTTY));
 
@@ -56,6 +60,8 @@ async function runInitCommandInner(options: InitCommandOptions): Promise<void> {
     ...(answers.name !== undefined ? { projectName: answers.name } : {}),
     ...(answers.defaultAgent !== undefined ? { defaultAgent: answers.defaultAgent } : {}),
     ...(answers.domain !== undefined ? { domain: answers.domain } : {}),
+    ...(answers.entityTypes !== undefined ? { entityTypes: answers.entityTypes } : {}),
+    ...(answers.commonQueries !== undefined ? { commonQueries: answers.commonQueries } : {}),
     ...(answers.linkStyle ? { linkStyle: answers.linkStyle } : {})
   };
 
@@ -71,6 +77,7 @@ async function runInitCommandInner(options: InitCommandOptions): Promise<void> {
   console.log("  sources/inbox/          Drop new notes, PDFs, or links here");
   console.log("  sources/archive/        Older material, once processed");
   console.log("  wiki/                   Where your organized notes will live");
+  console.log("  wiki/decisions.md       Structural rulings your assistant should remember between sessions");
   console.log(`  ${instructionsFile.padEnd(24)}The instructions your AI assistant (${assistantName}) will read`);
   console.log("  .second-brain.json      Your settings — change them with `second-brain config`");
   if (result.gitInitialized) {
@@ -111,6 +118,24 @@ async function runWizard(options: InitCommandOptions): Promise<InitCommandOption
       undefined
     ));
 
+  const entityTypes =
+    options.entityTypes ??
+    parseEntityTypes(
+      await prompt(
+        "What kinds of things will pages usually be about? (comma-separated — e.g. \"papers, authors, methods\" — or press enter to skip)",
+        undefined
+      )
+    );
+
+  const commonQueries =
+    options.commonQueries ??
+    parseCommonQueries(
+      await prompt(
+        "What's a question you'll want to answer from this? (e.g. \"What has X said about Y?\" — press enter to skip)",
+        undefined
+      )
+    );
+
   console.log("");
   console.log("Which AI assistant will help you maintain this?");
   const defaultAgent = options.defaultAgent ?? (await promptAgent());
@@ -136,10 +161,34 @@ async function runWizard(options: InitCommandOptions): Promise<InitCommandOption
     defaultAgent,
     directory,
     ...(domain ? { domain } : {}),
+    ...(entityTypes.length > 0 ? { entityTypes } : {}),
+    ...(commonQueries.length > 0 ? { commonQueries } : {}),
     git,
     linkStyle,
     name
   };
+}
+
+function parseEntityTypes(input: string): string[] {
+  return input
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+}
+
+function parseCommonQueries(input: string): string[] {
+  const trimmed = input.trim();
+  if (trimmed.length === 0) {
+    return [];
+  }
+  // Allow pipe-separated multi-question input; otherwise treat as single query.
+  if (trimmed.includes("|")) {
+    return trimmed
+      .split("|")
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+  }
+  return [trimmed];
 }
 
 async function promptAgent(): Promise<AgentKind> {
@@ -236,6 +285,28 @@ export function parseInitArgs(args: string[]): InitCommandOptions {
 
     if (arg.startsWith("--domain=")) {
       options.domain = arg.slice("--domain=".length);
+      continue;
+    }
+
+    if (arg === "--entity-types") {
+      options.entityTypes = parseEntityTypes(takeValue(args, index, "--entity-types"));
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--entity-types=")) {
+      options.entityTypes = parseEntityTypes(arg.slice("--entity-types=".length));
+      continue;
+    }
+
+    if (arg === "--common-queries") {
+      options.commonQueries = parseCommonQueries(takeValue(args, index, "--common-queries"));
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--common-queries=")) {
+      options.commonQueries = parseCommonQueries(arg.slice("--common-queries=".length));
       continue;
     }
 

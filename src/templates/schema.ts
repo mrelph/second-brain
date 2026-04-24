@@ -2,7 +2,7 @@ export type AgentKind = "codex" | "claude-code" | "opencode" | "pi" | "generic";
 export type WikiLinkStyle = "wikilinks" | "markdown";
 export type PageNamingStyle = "title-case" | "sentence-case" | "kebab-case";
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 export const MANAGED_START = "<!-- second-brain:schema:start -->";
 export const MANAGED_END = "<!-- second-brain:schema:end -->";
 export const CUSTOM_START = "<!-- second-brain:custom:start -->";
@@ -16,8 +16,10 @@ export const DEFAULT_CUSTOM_BLOCK_BODY = [
 
 export interface AgentSchemaTemplateOptions {
   agent: AgentKind;
+  commonQueries: string[];
   customCategories: string[];
   domain: string;
+  entityTypes: string[];
   frontmatter: boolean;
   pageNaming: PageNamingStyle;
   projectName: string;
@@ -145,6 +147,7 @@ function renderManagedSection(
     "",
     `Primary domain/topic: ${options.domain}`,
     "",
+    ...renderDomainSpecifics(options),
     `Preferred style conventions: ${options.styleGuide}`,
     "",
     "## Default Wiki Conventions",
@@ -267,6 +270,46 @@ function renderAgentConventions(agent: AgentKind): string[] {
         "- Optimize for future maintainability rather than short-term convenience."
       ];
   }
+}
+
+function renderDomainSpecifics(options: AgentSchemaTemplateOptions): string[] {
+  const hasEntityTypes = options.entityTypes.length > 0;
+  const hasQueries = options.commonQueries.length > 0;
+
+  if (!hasEntityTypes && !hasQueries) {
+    return [];
+  }
+
+  const lines: string[] = [];
+
+  if (hasEntityTypes) {
+    lines.push(
+      `Typical entity types in this domain: ${options.entityTypes.join(", ")}. Use these as the first vocabulary you check against when extracting from new sources.`,
+      ""
+    );
+  }
+
+  if (hasQueries) {
+    lines.push("Common questions this wiki should answer well:", "");
+    for (const query of options.commonQueries) {
+      lines.push(`- ${formatQuery(query)}`);
+    }
+    lines.push(
+      "",
+      "Structure pages so these questions land on a concrete answer within one or two links.",
+      ""
+    );
+  }
+
+  return lines;
+}
+
+function formatQuery(query: string): string {
+  const trimmed = query.trim();
+  if (trimmed.startsWith('"') || trimmed.startsWith("“")) {
+    return trimmed;
+  }
+  return `"${trimmed}"`;
 }
 
 function renderPageTemplate(options: AgentSchemaTemplateOptions): string[] {

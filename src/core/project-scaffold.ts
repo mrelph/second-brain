@@ -13,8 +13,10 @@ import {
 } from "../templates/project.ts";
 
 export interface ScaffoldOptions {
+  commonQueries?: string[];
   defaultAgent?: AgentKind;
   domain?: string;
+  entityTypes?: string[];
   force: boolean;
   initGit: boolean;
   linkStyle?: WikiLinkStyle;
@@ -56,6 +58,8 @@ export async function scaffoldSecondBrainProject(
     defaultAgent: options.defaultAgent ?? "codex",
     projectName,
     ...(options.domain ? { domain: options.domain } : {}),
+    ...(options.entityTypes ? { entityTypes: options.entityTypes } : {}),
+    ...(options.commonQueries ? { commonQueries: options.commonQueries } : {}),
     ...(options.linkStyle ? { linkStyle: options.linkStyle } : {})
   });
   const createdPaths: string[] = [];

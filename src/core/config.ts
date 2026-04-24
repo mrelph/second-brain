@@ -15,7 +15,9 @@ export interface SecondBrainConfig {
   defaultAgent: AgentKind;
   projectName: string;
   schema: {
+    commonQueries: string[];
     domain: string;
+    entityTypes: string[];
     styleGuide: string;
     version: number;
   };
@@ -31,8 +33,10 @@ export interface SecondBrainConfig {
 }
 
 export interface CreateDefaultConfigOptions {
+  commonQueries?: string[];
   defaultAgent?: AgentKind;
   domain?: string;
+  entityTypes?: string[];
   linkStyle?: WikiLinkStyle;
   projectName: string;
 }
@@ -45,7 +49,9 @@ export function createDefaultConfig(
     defaultAgent: options.defaultAgent ?? "codex",
     projectName: options.projectName,
     schema: {
+      commonQueries: cleanStringList(options.commonQueries),
       domain: options.domain?.trim() || `${options.projectName} knowledge base`,
+      entityTypes: cleanStringList(options.entityTypes),
       styleGuide:
         "Concise, factual markdown with clear headings, durable page titles, and explicit cross-links.",
       version: SCHEMA_VERSION
@@ -121,7 +127,9 @@ export function normalizeConfig(
     defaultAgent: isAgentKind(config.defaultAgent) ? config.defaultAgent : "codex",
     projectName,
     schema: {
+      commonQueries: cleanStringList(config.schema?.commonQueries),
       domain: cleanString(config.schema?.domain) || `${projectName} knowledge base`,
+      entityTypes: cleanStringList(config.schema?.entityTypes),
       styleGuide:
         cleanString(config.schema?.styleGuide) ||
         "Concise, factual markdown with clear headings, durable page titles, and explicit cross-links.",
@@ -180,4 +188,13 @@ function isSourceMode(
 
 function cleanString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function cleanStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => String(item).trim())
+    .filter((item, index, items) => item.length > 0 && items.indexOf(item) === index);
 }

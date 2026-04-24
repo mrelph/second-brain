@@ -32,8 +32,10 @@ export function buildSchemaFile(
   const path = join(projectRoot, fileName);
   const content = renderAgentSchemaTemplate({
     agent,
+    commonQueries: config.schema.commonQueries,
     customCategories: config.categories,
     domain: config.schema.domain,
+    entityTypes: config.schema.entityTypes,
     frontmatter: config.wiki.frontmatter,
     pageNaming: config.wiki.pageNaming,
     projectName: config.projectName,
