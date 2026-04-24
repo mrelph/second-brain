@@ -2,7 +2,7 @@ export type AgentKind = "codex" | "claude-code" | "opencode" | "pi" | "generic";
 export type WikiLinkStyle = "wikilinks" | "markdown";
 export type PageNamingStyle = "title-case" | "sentence-case" | "kebab-case";
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 export const MANAGED_START = "<!-- second-brain:schema:start -->";
 export const MANAGED_END = "<!-- second-brain:schema:end -->";
 export const CUSTOM_START = "<!-- second-brain:custom:start -->";
@@ -109,6 +109,7 @@ function renderManagedSection(
     "- `wiki/` is the durable markdown knowledge layer that should improve over time.",
     "- `wiki/index.md` is the top-level navigation page and should reflect the actual wiki structure.",
     "- `wiki/log.md` is append-only and records meaningful maintenance events.",
+    "- `wiki/decisions.md` records durable structural choices that should bind future passes (see Structural Decisions below).",
     "- `schema/` is optional support material for these instructions.",
     "",
     "## Scope Matching",
@@ -129,6 +130,16 @@ function renderManagedSection(
     "- Don't obsess over canonical titles yet — renames and merges are cheap at this stage.",
     "- Ignore the \"prefer updating an existing page\" rule. You don't have enough coverage for overlap to be a real risk.",
     "- Once the wiki crosses ~10 pages, flag it to the user so they know structural cleanup passes are now worth doing.",
+    "",
+    "## Structural Decisions",
+    "",
+    "`wiki/decisions.md` records durable organizational choices — distinct from `wiki/log.md`'s event stream. It answers \"what conventions already govern this wiki?\"",
+    "",
+    "- Before structural work (merges, renames, category changes, naming conflicts, scope boundaries): read it so you don't re-litigate settled choices.",
+    "- After making a decision that should bind future passes: append a short dated entry with what was decided, why, and what future passes should do.",
+    "- If the file doesn't exist yet, create it the first time you'd otherwise add an entry — don't block on its absence.",
+    "",
+    "Log entries describe events. Decision entries describe rules. Don't conflate them.",
     "",
     "## Domain And Style",
     "",

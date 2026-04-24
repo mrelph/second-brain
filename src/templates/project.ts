@@ -27,6 +27,7 @@ export function renderIndexTemplate(
 ): string {
   const useWikilinks = linkStyle === "wikilinks";
   const logLink = useWikilinks ? "[[log]]" : "[log](log.md)";
+  const decisionsLink = useWikilinks ? "[[decisions]]" : "[decisions](decisions.md)";
   const entitiesLink = useWikilinks ? "[[entities/README|Entities]]" : "[Entities](entities/README.md)";
   const conceptsLink = useWikilinks ? "[[concepts/README|Concepts]]" : "[Concepts](concepts/README.md)";
   const topicsLink = useWikilinks ? "[[topics/README|Topics]]" : "[Topics](topics/README.md)";
@@ -39,6 +40,7 @@ export function renderIndexTemplate(
     "## Core Pages",
     "",
     `- ${logLink}`,
+    `- ${decisionsLink}`,
     "",
     "## Areas",
     "",
@@ -66,6 +68,34 @@ export function renderLogTemplate(): string {
     "## Entries",
     "",
     "- YYYY-MM-DD: Initialized wiki scaffold.",
+    ""
+  ].join("\n");
+}
+
+export function renderDecisionsTemplate(): string {
+  return [
+    "# Wiki Decisions",
+    "",
+    "Durable structural choices about how this wiki is organized. Read this before structural work (merges, renames, category changes) so past conventions aren't re-litigated. Append a new entry when you make a decision that should bind future sessions.",
+    "",
+    "Decisions are different from log entries:",
+    "",
+    "- `wiki/log.md` records *what happened* (\"Ingested 3 papers on YYYY-MM-DD\").",
+    "- `wiki/decisions.md` records *what should keep happening* (\"Treat 'Transformers' and 'Transformer Architecture' as the same page going forward\").",
+    "",
+    "## Entries",
+    "",
+    "Append newest first. Keep each entry to 2–4 lines: what was decided, why, and what future passes should do.",
+    "",
+    "<!-- Example shape (delete once you have real entries):",
+    "",
+    "### YYYY-MM-DD — Example decision title",
+    "",
+    "**Decision:** Short statement of what was decided.",
+    "**Why:** The reason — user preference, overlap observation, naming conflict.",
+    "**Scope:** What future passes should do differently.",
+    "",
+    "-->",
     ""
   ].join("\n");
 }

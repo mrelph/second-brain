@@ -5,6 +5,7 @@ import { writeSchemaFile } from "./schema-file.ts";
 import { runGitInit } from "../utils/git.ts";
 import { type AgentKind, type WikiLinkStyle } from "../templates/schema.ts";
 import {
+  renderDecisionsTemplate,
   renderFolderReadmeTemplate,
   renderIndexTemplate,
   renderLogTemplate,
@@ -88,6 +89,10 @@ export async function scaffoldSecondBrainProject(
     {
       path: "wiki/log.md",
       content: renderLogTemplate()
+    },
+    {
+      path: "wiki/decisions.md",
+      content: renderDecisionsTemplate()
     },
     {
       path: "wiki/entities/README.md",
