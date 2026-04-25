@@ -1,6 +1,6 @@
 # second-brain
 
-`second-brain` sets up a personal knowledge base in a folder — a place to drop notes, documents, and links that your AI coding assistant (Claude Code, Codex, OpenCode, Pi, or any generic agent) can help you organize into a searchable wiki over time.
+`second-brain` sets up a personal knowledge base in a folder — a place to drop notes, documents, and links that your AI coding assistant (Claude Code, Codex, Kiro, OpenCode, Pi, or any generic agent) can help you organize into a searchable wiki over time.
 
 The CLI is the setup and configuration layer only. It writes the contract (an `AGENTS.md` or `CLAUDE.md` file) that tells your assistant how to maintain the wiki. Your assistant does the actual ingest, query, and cleanup work.
 
