@@ -76,7 +76,7 @@ async function runSchemaCommandInner(options: SchemaCommandOptions): Promise<voi
     projectRoot,
     nextConfig,
     agent,
-    existingSchema.customContent
+    { custom: existingSchema.customContent, assistant: existingSchema.assistantContent }
   );
   await saveConfig(projectRoot, nextConfig);
 

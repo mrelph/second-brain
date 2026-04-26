@@ -12,16 +12,26 @@ export type WikiLinkStyle = (typeof WIKI_LINK_STYLES)[number];
 export const PAGE_NAMING_STYLES = ["title-case", "sentence-case", "kebab-case"] as const;
 export type PageNamingStyle = (typeof PAGE_NAMING_STYLES)[number];
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 export const MANAGED_START = "<!-- second-brain:schema:start -->";
 export const MANAGED_END = "<!-- second-brain:schema:end -->";
 export const CUSTOM_START = "<!-- second-brain:custom:start -->";
 export const CUSTOM_END = "<!-- second-brain:custom:end -->";
+export const ASSISTANT_START = "<!-- second-brain:assistant:start -->";
+export const ASSISTANT_END = "<!-- second-brain:assistant:end -->";
 
 export const DEFAULT_CUSTOM_BLOCK_BODY = [
   "## Project Customizations",
   "",
   "Add project-specific instructions here. `second-brain upgrade` preserves this block when possible."
+].join("\n");
+
+export const DEFAULT_ASSISTANT_BLOCK_BODY = [
+  "## Assistant Observations",
+  "",
+  "_Maintained by the assistant. See \"Assistant Observations Block\" in the instructions above for what belongs here. The user reads this but doesn't usually edit it._",
+  "",
+  "(empty — populate as patterns emerge)"
 ].join("\n");
 
 export interface AgentSchemaTemplateOptions {
@@ -90,6 +100,10 @@ export function renderAgentSchemaTemplate(options: AgentSchemaTemplateOptions): 
     CUSTOM_START,
     DEFAULT_CUSTOM_BLOCK_BODY,
     CUSTOM_END,
+    "",
+    ASSISTANT_START,
+    DEFAULT_ASSISTANT_BLOCK_BODY,
+    ASSISTANT_END,
     ""
   ].join("\n");
 }
@@ -115,6 +129,18 @@ function renderManagedSection(
     `You are ${agentName}, the active curator of this knowledge base. The \`second-brain\` CLI only scaffolds this repo; you do the real work — reading sources, extracting knowledge, updating pages, answering questions, and repairing structure.`,
     "",
     "Good work leaves the wiki more coherent than you found it. Not always larger — often smaller, better-linked, less duplicated. Treat this file as your operational contract. If a rule here conflicts with what the user just asked, flag the conflict; don't silently ignore either.",
+    "",
+    "## Pre-flight",
+    "",
+    "At the start of a session — before doing the work the user asked for — take a moment to glance at:",
+    "",
+    "- The most recent few entries in `wiki/log.md` (what was last touched).",
+    "- The Assistant Observations block at the bottom of this file (what you've previously noted about this project).",
+    "- The current `.second-brain.json` (what the user said this knowledge base should be about).",
+    "",
+    "If those signals materially disagree — for example, the configured `entityTypes` no longer match what most pages are actually about, or a recurring user preference contradicts a setting — flag it briefly to the user before doing other work. Don't fix it unilaterally. This is a 1–2 sentence check, not an audit.",
+    "",
+    "For small asks (see Scope Matching), skip pre-flight entirely.",
     "",
     "## Repository Model",
     "",
@@ -156,6 +182,30 @@ function renderManagedSection(
     "",
     "Log entries describe events. Decision entries describe rules. Don't conflate them.",
     "",
+    "## Assistant Observations Block",
+    "",
+    "The bottom of this file has an `<!-- second-brain:assistant:start --> ... :end -->` block reserved for you. Use it to record durable per-project intelligence that should survive across sessions but doesn't fit elsewhere.",
+    "",
+    "Three places hold per-project memory. Don't conflate them:",
+    "",
+    "- `wiki/decisions.md` records *structural* rulings about the wiki (merges, naming conventions, scope boundaries).",
+    "- The Project Customizations block records *explicit* user preferences and project-specific instructions the user wrote.",
+    "- The Assistant Observations block records what *you've inferred* — patterns, drift signals, working-style observations — that future passes (yours or another assistant's) should bias toward.",
+    "",
+    "Good things to write in the Assistant Observations block:",
+    "",
+    "- Recurring entity types observed in pages but not in `entityTypes` config — propose to the user, then note what was decided.",
+    "- Style preferences inferred from user feedback (e.g., \"user always wants 'When to use' sections on concept pages\").",
+    "- Query patterns the wiki currently answers well — and patterns it doesn't.",
+    "- Working-rhythm notes (e.g., \"user typically ingests in batches; defer index refreshes between batches is fine\").",
+    "",
+    "Rules:",
+    "",
+    "- Only edit content between the `assistant:start` and `assistant:end` markers. Do not edit anywhere else outside the schema block.",
+    "- Keep it tight. ~30 lines is a soft ceiling — consolidate or remove rather than letting it sprawl.",
+    "- If something there becomes wrong, correct or remove it. Treat it as your working memory, not an immutable log.",
+    "- The user reads this block but rarely edits it. They may ask you to summarize, restructure, or clear it.",
+    "",
     "## Domain And Style",
     "",
     `Primary domain/topic: ${options.domain}`,
@@ -182,6 +232,7 @@ function renderManagedSection(
     "6. If uncertainty exists, represent it explicitly instead of smoothing it away.",
     "7. Keep markdown portable. Avoid agent-specific syntax inside wiki pages.",
     "8. Prefer incremental maintenance over large speculative restructures unless the user asks for one.",
+    "9. The Assistant Observations block at the bottom of this file is yours to maintain. Update it when you observe durable patterns. The Project Customizations block above it belongs to the user; do not edit it.",
     "",
     "## Ingest Workflow",
     "",

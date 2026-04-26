@@ -2,6 +2,8 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { type SecondBrainConfig } from "./config.ts";
 import {
+  ASSISTANT_END,
+  ASSISTANT_START,
   CUSTOM_END,
   CUSTOM_START,
   getSchemaFilename,
@@ -16,7 +18,13 @@ export interface GeneratedSchemaFile {
   path: string;
 }
 
+export interface PreservedSchemaContent {
+  assistant: string;
+  custom: string;
+}
+
 export interface SchemaState {
+  assistantContent: string;
   currentContent: string | null;
   customContent: string;
   filePath: string;
@@ -56,6 +64,7 @@ export async function readSchemaState(
   try {
     const currentContent = await readFile(filePath, "utf8");
     return {
+      assistantContent: extractAssistantBlock(currentContent),
       currentContent,
       customContent: extractCustomBlock(currentContent),
       filePath,
@@ -63,6 +72,7 @@ export async function readSchemaState(
     };
   } catch {
     return {
+      assistantContent: "",
       currentContent: null,
       customContent: "",
       filePath,
@@ -75,10 +85,11 @@ export async function writeSchemaFile(
   projectRoot: string,
   config: SecondBrainConfig,
   agent: AgentKind,
-  preservedCustomContent: string
+  preserved: PreservedSchemaContent
 ): Promise<GeneratedSchemaFile> {
   const generated = buildSchemaFile(projectRoot, config, agent);
-  const content = applyCustomBlock(generated.content, preservedCustomContent);
+  let content = applyCustomBlock(generated.content, preserved.custom);
+  content = applyAssistantBlock(content, preserved.assistant);
   await writeFile(generated.path, content, "utf8");
 
   return {
@@ -88,34 +99,72 @@ export async function writeSchemaFile(
 }
 
 export function applyCustomBlock(content: string, customContent: string): string {
-  const trimmed = customContent.trim();
-  const startIndex = content.indexOf(CUSTOM_START);
-  const endIndex = content.indexOf(CUSTOM_END);
-  const markersValid = startIndex !== -1 && endIndex !== -1 && endIndex > startIndex;
+  return spliceBlock(content, CUSTOM_START, CUSTOM_END, customContent, "custom");
+}
 
+export function applyAssistantBlock(content: string, assistantContent: string): string {
+  return spliceBlock(content, ASSISTANT_START, ASSISTANT_END, assistantContent, "assistant");
+}
+
+function spliceBlock(
+  content: string,
+  startMarker: string,
+  endMarker: string,
+  preservedBody: string,
+  blockName: string
+): string {
+  const trimmed = preservedBody.trim();
   if (!trimmed) {
     return content;
   }
 
+  const searchFrom = findContentRegionStart(content);
+  const startIndex = content.indexOf(startMarker, searchFrom);
+  const endIndex = content.indexOf(endMarker, searchFrom);
+  const markersValid = startIndex !== -1 && endIndex !== -1 && endIndex > startIndex;
+
   if (!markersValid) {
     throw new Error(
-      "Generated schema file is missing custom-content markers; refusing to drop preserved customizations."
+      `Generated schema file is missing ${blockName}-content markers; refusing to drop preserved content.`
     );
   }
 
-  const replacement = [CUSTOM_START, trimmed, CUSTOM_END].join("\n");
-  return `${content.slice(0, startIndex)}${replacement}${content.slice(endIndex + CUSTOM_END.length)}`;
+  const replacement = [startMarker, trimmed, endMarker].join("\n");
+  return `${content.slice(0, startIndex)}${replacement}${content.slice(endIndex + endMarker.length)}`;
 }
 
 export function extractCustomBlock(content: string): string {
-  const startIndex = content.indexOf(CUSTOM_START);
-  const endIndex = content.indexOf(CUSTOM_END);
+  return extractBlock(content, CUSTOM_START, CUSTOM_END);
+}
+
+export function extractAssistantBlock(content: string): string {
+  return extractBlock(content, ASSISTANT_START, ASSISTANT_END);
+}
+
+function extractBlock(content: string, startMarker: string, endMarker: string): string {
+  const searchFrom = findContentRegionStart(content);
+  const startIndex = content.indexOf(startMarker, searchFrom);
+  const endIndex = content.indexOf(endMarker, searchFrom);
 
   if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
     return "";
   }
 
-  return content.slice(startIndex + CUSTOM_START.length, endIndex).trim();
+  return content.slice(startIndex + startMarker.length, endIndex).trim();
+}
+
+/**
+ * The custom and assistant blocks always live AFTER the managed block. Searching
+ * from after MANAGED_END means the parser ignores any literal marker strings
+ * that happen to appear inside the managed prose itself (e.g., when the prose
+ * documents the marker by name).
+ */
+function findContentRegionStart(content: string): number {
+  const managedEndIndex = content.indexOf(MANAGED_END);
+  if (managedEndIndex === -1) {
+    return 0;
+  }
+  return managedEndIndex + MANAGED_END.length;
 }
 
 export function extractSchemaVersion(content: string): number | null {

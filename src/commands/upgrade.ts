@@ -9,6 +9,7 @@ import {
   type SecondBrainConfig
 } from "../core/config.ts";
 import {
+  applyAssistantBlock,
   applyCustomBlock,
   buildSchemaFile,
   readSchemaState,
@@ -45,7 +46,8 @@ async function runUpgradeCommandInner(options: UpgradeCommandOptions): Promise<v
   const agent = options.agent ?? config.defaultAgent;
   const schemaState = await readSchemaState(projectRoot, agent);
   const generated = buildSchemaFile(projectRoot, config, agent);
-  const nextContent = applyCustomBlock(generated.content, schemaState.customContent);
+  const withCustom = applyCustomBlock(generated.content, schemaState.customContent);
+  const nextContent = applyAssistantBlock(withCustom, schemaState.assistantContent);
   const previousContent = schemaState.currentContent ?? "";
 
   const fileName = getSchemaFilename(agent);
@@ -62,7 +64,9 @@ async function runUpgradeCommandInner(options: UpgradeCommandOptions): Promise<v
     return;
   }
 
-  console.log("Here's what would change (your \"Project Customizations\" section is preserved):");
+  console.log(
+    "Here's what would change (your \"Project Customizations\" and \"Assistant Observations\" sections are preserved):"
+  );
   console.log("");
   console.log(
     renderLineDiff(
@@ -84,7 +88,10 @@ async function runUpgradeCommandInner(options: UpgradeCommandOptions): Promise<v
     return;
   }
 
-  const written = await writeSchemaFile(projectRoot, config, agent, schemaState.customContent);
+  const written = await writeSchemaFile(projectRoot, config, agent, {
+    custom: schemaState.customContent,
+    assistant: schemaState.assistantContent
+  });
   const nextConfig: SecondBrainConfig = {
     ...config,
     defaultAgent: agent,

@@ -150,7 +150,7 @@ export async function scaffoldSecondBrainProject(
     options.targetDir,
     config,
     config.defaultAgent,
-    ""
+    { custom: "", assistant: "" }
   );
   createdPaths.push(relative(options.targetDir, generatedSchema.path));
 

@@ -58,8 +58,18 @@ Run `second-brain --help` for the full command list.
 - `init` — set up a new knowledge base (runs a short wizard by default)
 - `doctor` — show a summary of your knowledge base and next steps
 - `schema` — refresh your assistant's instructions (`AGENTS.md` / `CLAUDE.md` / etc.)
-- `upgrade` — update your assistant's instructions to the latest version; your "Project Customizations" section is preserved
+- `upgrade` — update your assistant's instructions to the latest version; your "Project Customizations" and "Assistant Observations" sections are preserved
 - `config` — show or change project settings in `.second-brain.json`
+
+## What's in the instruction file
+
+The generated `AGENTS.md` / `CLAUDE.md` has three blocks:
+
+- **Managed block** (`<!-- second-brain:schema:start --> ... :end -->`) — the workflows, rules, and templates `second-brain` ships. Overwritten on `upgrade`.
+- **Project Customizations block** (`<!-- second-brain:custom:start --> ... :end -->`) — *yours*. Add your own preferences and project-specific instructions here. Preserved across upgrades.
+- **Assistant Observations block** (`<!-- second-brain:assistant:start --> ... :end -->`) — *the assistant's working memory*. The assistant maintains this with durable observations: recurring entity types it sees, style preferences it's inferred, drift signals worth flagging. Preserved across upgrades.
+
+The managed block also includes a "Pre-flight" instruction telling the assistant to glance at `wiki/log.md`, the Assistant Observations block, and `.second-brain.json` at the start of a session and surface drift to you — so the contract stays honest as the wiki evolves.
 
 ## Setup from a script or AI agent
 
