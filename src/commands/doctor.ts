@@ -16,6 +16,7 @@ import {
 
 export interface DoctorCommandOptions {
   directory?: string;
+  json?: boolean;
 }
 
 interface ContentSurvey {
@@ -41,6 +42,10 @@ export async function runDoctorCommand(options: DoctorCommandOptions): Promise<v
   const projectRoot = await findProjectRoot(baseDir);
 
   if (!projectRoot) {
+    if (options.json) {
+      console.log(JSON.stringify({ status: "no-project", searchedFrom: baseDir }, null, 2));
+      return;
+    }
     console.log("No second-brain knowledge base found here (or in any parent folder).");
     console.log("Run `second-brain init` to create one.");
     return;
@@ -51,6 +56,10 @@ export async function runDoctorCommand(options: DoctorCommandOptions): Promise<v
     config = await loadConfig(projectRoot);
   } catch (error: unknown) {
     if (isConfigMissingError(error)) {
+      if (options.json) {
+        console.log(JSON.stringify({ status: "no-config", projectRoot }, null, 2));
+        return;
+      }
       console.log("No .second-brain.json found. Run `second-brain init` here to set one up.");
       return;
     }
@@ -60,6 +69,30 @@ export async function runDoctorCommand(options: DoctorCommandOptions): Promise<v
   const schemaState = await readSchemaState(projectRoot, config.defaultAgent);
   const content = await surveyContent(projectRoot);
   const findings = collectFindings(config, schemaState, content);
+
+  if (options.json) {
+    console.log(
+      JSON.stringify(
+        {
+          status: "ok",
+          projectRoot,
+          projectName: config.projectName,
+          agent: config.defaultAgent,
+          instructionsFile: getSchemaFilename(config.defaultAgent),
+          schemaVersion: schemaState.version,
+          latestSchemaVersion: SCHEMA_VERSION,
+          domain: config.schema.domain,
+          linkStyle: config.wiki.linkStyle,
+          categories: config.categories,
+          content,
+          findings
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
 
   printSummary(projectRoot, config);
   console.log("");
@@ -89,6 +122,11 @@ export function parseDoctorArgs(args: string[]): DoctorCommandOptions {
 
     if (arg.startsWith("--directory=")) {
       options.directory = arg.slice("--directory=".length);
+      continue;
+    }
+
+    if (arg === "--json") {
+      options.json = true;
       continue;
     }
 
@@ -227,8 +265,8 @@ async function surveyContent(projectRoot: string): Promise<ContentSurvey> {
     hasLog,
     hasGit
   ] = await Promise.all([
-    countFiles(join(projectRoot, "sources/inbox"), { excludeGitkeep: true }),
-    countFiles(join(projectRoot, "sources/archive"), { excludeGitkeep: true }),
+    countSourceFiles(join(projectRoot, "sources/inbox")),
+    countSourceFiles(join(projectRoot, "sources/archive")),
     countMarkdownPages(join(projectRoot, "wiki/entities")),
     countMarkdownPages(join(projectRoot, "wiki/concepts")),
     countMarkdownPages(join(projectRoot, "wiki/topics")),
@@ -253,18 +291,12 @@ async function surveyContent(projectRoot: string): Promise<ContentSurvey> {
   };
 }
 
-async function countFiles(
-  dir: string,
-  options: { excludeGitkeep: boolean }
-): Promise<number> {
+async function countSourceFiles(dir: string): Promise<number> {
   try {
     const entries = await readdir(dir);
-    return entries.filter((entry) => {
-      if (entry.startsWith(".")) {
-        return options.excludeGitkeep ? false : !entry.startsWith(".git");
-      }
-      return true;
-    }).length;
+    return entries.filter(
+      (entry) => entry !== ".gitkeep" && !entry.startsWith(".git")
+    ).length;
   } catch (error: unknown) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return 0;

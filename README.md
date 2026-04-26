@@ -61,6 +61,27 @@ Run `second-brain --help` for the full command list.
 - `upgrade` — update your assistant's instructions to the latest version; your "Project Customizations" section is preserved
 - `config` — show or change project settings in `.second-brain.json`
 
+## Setup from a script or AI agent
+
+`init` and `doctor` are both LLM-friendly so a coding agent or wrapper script can set up and inspect a knowledge base without driving the wizard.
+
+```sh
+# Get the JSON Schema for .second-brain.json (so an LLM can produce a valid config)
+second-brain init --print-schema
+
+# Initialize from a complete config file (or stdin) — no wizard, no prompts
+second-brain init --config setup.json --no-git
+echo '{"projectName":"My KB","defaultAgent":"claude-code"}' | second-brain init --config - --no-git
+
+# Force the wizard off even when no flags are passed
+second-brain init --non-interactive --name "My KB"
+
+# Read knowledge-base status as structured JSON
+second-brain doctor --json
+```
+
+`.second-brain.json` is the contract: anything you can configure can be expressed there, and `init --config` will scaffold a project that fully reflects it. The conventional flow for an LLM-driven setup is interview-or-ingest → write JSON → `init --config <file>`.
+
 ## Building binaries
 
 Building prebuilt binaries requires [Bun](https://bun.sh).

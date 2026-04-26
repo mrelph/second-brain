@@ -88,11 +88,12 @@ function printHelp(): void {
   console.log("Full options:");
   console.log("  init      [directory] [--name <name>] [--agent <kind>] [--domain <text>]");
   console.log("            [--wikilinks|--markdown-links] [--force] [--no-git] [-i]");
+  console.log("            [--config <file|->] [--non-interactive] [--print-schema]");
   console.log("  schema    [--agent <kind>] [--domain <text>] [--style <text>]");
   console.log("            [--wikilinks|--markdown-links] [--interactive]");
   console.log("  upgrade   [--agent <kind>] [--dry-run] [--yes]");
   console.log("  config    [show|get|set|init] [key] [value]");
-  console.log("  doctor    [--directory <path>]");
+  console.log("  doctor    [--directory <path>] [--json]");
   console.log("");
   console.log("  Assistants: claude-code, codex, opencode, pi, generic");
 }

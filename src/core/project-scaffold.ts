@@ -1,6 +1,6 @@
 import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
-import { CONFIG_FILENAME, createDefaultConfig } from "./config.ts";
+import { CONFIG_FILENAME, createDefaultConfig, type SecondBrainConfig } from "./config.ts";
 import { writeSchemaFile } from "./schema-file.ts";
 import { runGitInit } from "../utils/git.ts";
 import { type AgentKind, type WikiLinkStyle } from "../templates/schema.ts";
@@ -14,6 +14,7 @@ import {
 
 export interface ScaffoldOptions {
   commonQueries?: string[];
+  config?: SecondBrainConfig;
   defaultAgent?: AgentKind;
   domain?: string;
   entityTypes?: string[];
@@ -53,15 +54,17 @@ export async function scaffoldSecondBrainProject(
 ): Promise<ScaffoldResult> {
   await ensureTargetDirectory(options.targetDir, options.force);
 
-  const projectName = options.projectName?.trim() || basename(options.targetDir);
-  const config = createDefaultConfig({
-    defaultAgent: options.defaultAgent ?? "codex",
-    projectName,
-    ...(options.domain ? { domain: options.domain } : {}),
-    ...(options.entityTypes ? { entityTypes: options.entityTypes } : {}),
-    ...(options.commonQueries ? { commonQueries: options.commonQueries } : {}),
-    ...(options.linkStyle ? { linkStyle: options.linkStyle } : {})
-  });
+  const config =
+    options.config ??
+    createDefaultConfig({
+      defaultAgent: options.defaultAgent ?? "codex",
+      projectName: options.projectName?.trim() || basename(options.targetDir),
+      ...(options.domain ? { domain: options.domain } : {}),
+      ...(options.entityTypes ? { entityTypes: options.entityTypes } : {}),
+      ...(options.commonQueries ? { commonQueries: options.commonQueries } : {}),
+      ...(options.linkStyle ? { linkStyle: options.linkStyle } : {})
+    });
+  const projectName = config.projectName;
   const createdPaths: string[] = [];
 
   for (const directory of DIRECTORIES) {

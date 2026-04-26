@@ -1,14 +1,23 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import {
+  AGENT_KINDS,
+  PAGE_NAMING_STYLES,
+  SCHEMA_VERSION,
+  WIKI_LINK_STYLES,
   type AgentKind,
   type PageNamingStyle,
-  type WikiLinkStyle,
-  SCHEMA_VERSION
+  type WikiLinkStyle
 } from "../templates/schema.ts";
 
 export const CONFIG_FILENAME = ".second-brain.json";
 export const CONFIG_VERSION = 1;
+export const SOURCE_HANDLING_MODES = [
+  "leave-in-inbox",
+  "archive-after-ingest",
+  "user-directed"
+] as const;
+export type SourceHandlingMode = (typeof SOURCE_HANDLING_MODES)[number];
 
 export interface SecondBrainConfig {
   categories: string[];
@@ -22,7 +31,7 @@ export interface SecondBrainConfig {
     version: number;
   };
   sourceHandling: {
-    mode: "leave-in-inbox" | "archive-after-ingest" | "user-directed";
+    mode: SourceHandlingMode;
   };
   version: number;
   wiki: {
@@ -154,14 +163,7 @@ export function normalizeConfig(
 }
 
 export function isAgentKind(value: unknown): value is AgentKind {
-  return (
-    value === "codex" ||
-    value === "claude-code" ||
-    value === "kiro" ||
-    value === "opencode" ||
-    value === "pi" ||
-    value === "generic"
-  );
+  return AGENT_KINDS.includes(value as AgentKind);
 }
 
 export function parseAgentKind(value: string, context = "agent"): AgentKind {
@@ -172,19 +174,15 @@ export function parseAgentKind(value: string, context = "agent"): AgentKind {
 }
 
 function isWikiLinkStyle(value: unknown): value is WikiLinkStyle {
-  return value === "wikilinks" || value === "markdown";
+  return WIKI_LINK_STYLES.includes(value as WikiLinkStyle);
 }
 
 function isPageNamingStyle(value: unknown): value is PageNamingStyle {
-  return value === "title-case" || value === "sentence-case" || value === "kebab-case";
+  return PAGE_NAMING_STYLES.includes(value as PageNamingStyle);
 }
 
-function isSourceMode(
-  value: unknown
-): value is SecondBrainConfig["sourceHandling"]["mode"] {
-  return (
-    value === "leave-in-inbox" || value === "archive-after-ingest" || value === "user-directed"
-  );
+function isSourceMode(value: unknown): value is SourceHandlingMode {
+  return SOURCE_HANDLING_MODES.includes(value as SourceHandlingMode);
 }
 
 function cleanString(value: unknown): string {
@@ -198,4 +196,101 @@ function cleanStringList(value: unknown): string[] {
   return value
     .map((item) => String(item).trim())
     .filter((item, index, items) => item.length > 0 && items.indexOf(item) === index);
+}
+
+export function getConfigJsonSchema(): Record<string, unknown> {
+  return {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    title: "second-brain config (.second-brain.json)",
+    description:
+      "Project configuration consumed by `second-brain init --config` and `second-brain upgrade`. " +
+      "Any field omitted falls back to the same defaults used by the wizard.",
+    type: "object",
+    additionalProperties: false,
+    required: ["projectName"],
+    properties: {
+      version: {
+        type: "integer",
+        const: CONFIG_VERSION,
+        description: "Config file format version. Defaults to the current version if omitted."
+      },
+      projectName: {
+        type: "string",
+        minLength: 1,
+        description: "Human-readable project name; used in headings and the generated instruction file."
+      },
+      defaultAgent: {
+        enum: [...AGENT_KINDS],
+        default: "codex",
+        description: "Which AI coding assistant maintains this knowledge base."
+      },
+      categories: {
+        type: "array",
+        items: { type: "string", minLength: 1 },
+        default: [],
+        description:
+          "Extra wiki page categories beyond the built-in entities/concepts/topics. Use sparingly."
+      },
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          version: { type: "integer", description: "Schema (instruction-file) version this config was authored against." },
+          domain: {
+            type: "string",
+            description: "One-line description of what this knowledge base is about (e.g. 'AI safety research notes')."
+          },
+          styleGuide: {
+            type: "string",
+            description: "Preferred prose conventions for wiki pages (tone, headings, link density)."
+          },
+          entityTypes: {
+            type: "array",
+            items: { type: "string", minLength: 1 },
+            default: [],
+            description: "Recurring kinds of things pages will be about (e.g. ['papers', 'authors', 'methods'])."
+          },
+          commonQueries: {
+            type: "array",
+            items: { type: "string", minLength: 1 },
+            default: [],
+            description: "Sample questions the wiki should answer well — shapes how the assistant structures pages."
+          }
+        }
+      },
+      sourceHandling: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          mode: {
+            enum: [...SOURCE_HANDLING_MODES],
+            default: "user-directed",
+            description:
+              "How processed sources move between sources/inbox/ and sources/archive/."
+          }
+        }
+      },
+      wiki: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          frontmatter: {
+            type: "boolean",
+            default: true,
+            description: "Whether maintained wiki pages begin with YAML frontmatter."
+          },
+          linkStyle: {
+            enum: [...WIKI_LINK_STYLES],
+            default: "wikilinks",
+            description: "Internal link style: Obsidian-style [[Page]] vs portable markdown links."
+          },
+          pageNaming: {
+            enum: [...PAGE_NAMING_STYLES],
+            default: "title-case",
+            description: "Casing convention for page titles."
+          }
+        }
+      }
+    }
+  };
 }

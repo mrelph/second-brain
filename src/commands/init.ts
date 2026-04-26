@@ -1,7 +1,14 @@
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { parseAgentKind } from "../core/config.ts";
+import {
+  getConfigJsonSchema,
+  normalizeConfig,
+  parseAgentKind,
+  type SecondBrainConfig
+} from "../core/config.ts";
 import { scaffoldSecondBrainProject, type ScaffoldOptions } from "../core/project-scaffold.ts";
 import {
+  AGENT_KINDS,
   getAgentDisplayName,
   getSchemaFilename,
   type AgentKind,
@@ -11,6 +18,7 @@ import { closePrompts, prompt } from "../utils/prompt.ts";
 
 export interface InitCommandOptions {
   commonQueries?: string[];
+  configPath?: string;
   defaultAgent?: AgentKind;
   directory?: string;
   domain?: string;
@@ -20,16 +28,9 @@ export interface InitCommandOptions {
   interactive?: boolean;
   linkStyle?: WikiLinkStyle;
   name?: string;
+  nonInteractive?: boolean;
+  printSchema?: boolean;
 }
-
-const AGENT_CHOICES: readonly AgentKind[] = [
-  "claude-code",
-  "codex",
-  "kiro",
-  "opencode",
-  "pi",
-  "generic"
-] as const;
 
 export async function runInitCommand(options: InitCommandOptions): Promise<void> {
   try {
@@ -40,7 +41,27 @@ export async function runInitCommand(options: InitCommandOptions): Promise<void>
 }
 
 async function runInitCommandInner(options: InitCommandOptions): Promise<void> {
+  if (options.printSchema) {
+    console.log(JSON.stringify(getConfigJsonSchema(), null, 2));
+    return;
+  }
+
+  if (options.configPath !== undefined) {
+    rejectConflictingContentFlags(options);
+    const config = await loadConfigFromPath(options.configPath);
+    const targetDir = resolve(process.cwd(), options.directory ?? ".");
+    const result = await scaffoldSecondBrainProject({
+      targetDir,
+      force: options.force,
+      initGit: options.git,
+      config
+    });
+    printNextSteps(result, config.defaultAgent);
+    return;
+  }
+
   const wizardRequested = options.interactive === true;
+  const wizardSuppressed = options.nonInteractive === true;
   const noFlagsPassed =
     options.name === undefined &&
     options.defaultAgent === undefined &&
@@ -49,9 +70,15 @@ async function runInitCommandInner(options: InitCommandOptions): Promise<void> {
     options.entityTypes === undefined &&
     options.commonQueries === undefined &&
     options.directory === undefined;
-  const useWizard = wizardRequested || (noFlagsPassed && Boolean(process.stdin.isTTY));
+  const useWizard =
+    !wizardSuppressed &&
+    (wizardRequested || (noFlagsPassed && Boolean(process.stdin.isTTY)));
 
   const answers = useWizard ? await runWizard(options) : options;
+  await scaffoldFromAnswers(answers);
+}
+
+async function scaffoldFromAnswers(answers: InitCommandOptions): Promise<void> {
   const targetDir = resolve(process.cwd(), answers.directory ?? ".");
 
   const scaffoldOptions: ScaffoldOptions = {
@@ -67,7 +94,13 @@ async function runInitCommandInner(options: InitCommandOptions): Promise<void> {
   };
 
   const result = await scaffoldSecondBrainProject(scaffoldOptions);
-  const agent = scaffoldOptions.defaultAgent ?? "codex";
+  printNextSteps(result, scaffoldOptions.defaultAgent ?? "codex");
+}
+
+function printNextSteps(
+  result: { targetDir: string; gitInitialized: boolean },
+  agent: AgentKind
+): void {
   const instructionsFile = getSchemaFilename(agent);
   const assistantName = getAgentDisplayName(agent);
 
@@ -99,6 +132,22 @@ async function runInitCommandInner(options: InitCommandOptions): Promise<void> {
   console.log("preferences — they'll be preserved when you upgrade.");
   console.log("");
   console.log("Run `second-brain doctor` anytime to see a summary and next steps.");
+}
+
+function rejectConflictingContentFlags(options: InitCommandOptions): void {
+  const conflicts: string[] = [];
+  if (options.name !== undefined) conflicts.push("--name");
+  if (options.defaultAgent !== undefined) conflicts.push("--agent");
+  if (options.domain !== undefined) conflicts.push("--domain");
+  if (options.entityTypes !== undefined) conflicts.push("--entity-types");
+  if (options.commonQueries !== undefined) conflicts.push("--common-queries");
+  if (options.linkStyle !== undefined) conflicts.push("--wikilinks/--markdown-links");
+  if (conflicts.length > 0) {
+    throw new Error(
+      `--config is mutually exclusive with content flags: ${conflicts.join(", ")}. ` +
+        `Put those values inside the JSON config instead.`
+    );
+  }
 }
 
 async function runWizard(options: InitCommandOptions): Promise<InitCommandOptions> {
@@ -193,17 +242,46 @@ function parseCommonQueries(input: string): string[] {
 }
 
 async function promptAgent(): Promise<AgentKind> {
-  for (let i = 0; i < AGENT_CHOICES.length; i += 1) {
-    const kind = AGENT_CHOICES[i]!;
-    const label = i === AGENT_CHOICES.length - 1 ? "Any / not sure yet" : getAgentDisplayName(kind);
+  for (let i = 0; i < AGENT_KINDS.length; i += 1) {
+    const kind = AGENT_KINDS[i]!;
+    const label = kind === "generic" ? "Any / not sure yet" : getAgentDisplayName(kind);
     console.log(`  ${i + 1}. ${label}`);
   }
   const answer = await prompt("Pick a number or name", "1");
   const asNumber = Number.parseInt(answer, 10);
-  if (Number.isInteger(asNumber) && asNumber >= 1 && asNumber <= AGENT_CHOICES.length) {
-    return AGENT_CHOICES[asNumber - 1]!;
+  if (Number.isInteger(asNumber) && asNumber >= 1 && asNumber <= AGENT_KINDS.length) {
+    return AGENT_KINDS[asNumber - 1]!;
   }
   return parseAgentKind(answer, "assistant");
+}
+
+async function loadConfigFromPath(path: string): Promise<SecondBrainConfig> {
+  const raw = path === "-" ? await readStdin() : await readFile(path, "utf8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error: unknown) {
+    const detail = error instanceof Error ? error.message : String(error);
+    const source = path === "-" ? "stdin" : path;
+    throw new Error(`Invalid JSON from ${source}: ${detail}`);
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Config must be a JSON object.");
+  }
+  return normalizeConfig(process.cwd(), parsed as Partial<SecondBrainConfig>);
+}
+
+async function readStdin(): Promise<string> {
+  if (process.stdin.isTTY) {
+    throw new Error(
+      "Refusing to read config from a TTY stdin. Pass a file path or pipe JSON in."
+    );
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 async function promptLinkStyle(): Promise<WikiLinkStyle> {
@@ -243,6 +321,27 @@ export function parseInitArgs(args: string[]): InitCommandOptions {
 
     if (arg === "--interactive" || arg === "-i") {
       options.interactive = true;
+      continue;
+    }
+
+    if (arg === "--non-interactive") {
+      options.nonInteractive = true;
+      continue;
+    }
+
+    if (arg === "--print-schema") {
+      options.printSchema = true;
+      continue;
+    }
+
+    if (arg === "--config") {
+      options.configPath = takeValue(args, index, "--config");
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--config=")) {
+      options.configPath = arg.slice("--config=".length);
       continue;
     }
 

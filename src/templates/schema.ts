@@ -1,6 +1,16 @@
-export type AgentKind = "codex" | "claude-code" | "kiro" | "opencode" | "pi" | "generic";
-export type WikiLinkStyle = "wikilinks" | "markdown";
-export type PageNamingStyle = "title-case" | "sentence-case" | "kebab-case";
+export const AGENT_KINDS = [
+  "claude-code",
+  "codex",
+  "kiro",
+  "opencode",
+  "pi",
+  "generic"
+] as const;
+export type AgentKind = (typeof AGENT_KINDS)[number];
+export const WIKI_LINK_STYLES = ["wikilinks", "markdown"] as const;
+export type WikiLinkStyle = (typeof WIKI_LINK_STYLES)[number];
+export const PAGE_NAMING_STYLES = ["title-case", "sentence-case", "kebab-case"] as const;
+export type PageNamingStyle = (typeof PAGE_NAMING_STYLES)[number];
 
 export const SCHEMA_VERSION = 5;
 export const MANAGED_START = "<!-- second-brain:schema:start -->";
