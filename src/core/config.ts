@@ -66,7 +66,7 @@ export function createDefaultConfig(
       version: SCHEMA_VERSION
     },
     sourceHandling: {
-      mode: "user-directed"
+      mode: "archive-after-ingest"
     },
     version: CONFIG_VERSION,
     wiki: {
@@ -148,7 +148,7 @@ export function normalizeConfig(
     sourceHandling: {
       mode: isSourceMode(config.sourceHandling?.mode)
         ? config.sourceHandling.mode
-        : "user-directed"
+        : "archive-after-ingest"
     },
     version: typeof config.version === "number" ? config.version : CONFIG_VERSION,
     wiki: {
@@ -264,7 +264,7 @@ export function getConfigJsonSchema(): Record<string, unknown> {
         properties: {
           mode: {
             enum: [...SOURCE_HANDLING_MODES],
-            default: "user-directed",
+            default: "archive-after-ingest",
             description:
               "How processed sources move between sources/inbox/ and sources/archive/."
           }
