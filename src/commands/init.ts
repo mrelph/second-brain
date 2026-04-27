@@ -7,6 +7,7 @@ import {
   type SecondBrainConfig
 } from "../core/config.ts";
 import { scaffoldSecondBrainProject, type ScaffoldOptions } from "../core/project-scaffold.ts";
+import { addVaultToRegistry } from "../core/vaults.ts";
 import {
   AGENT_KINDS,
   getAgentDisplayName,
@@ -56,7 +57,7 @@ async function runInitCommandInner(options: InitCommandOptions): Promise<void> {
       initGit: options.git,
       config
     });
-    printNextSteps(result, config.defaultAgent);
+    await completeInit(result, config.defaultAgent);
     return;
   }
 
@@ -94,18 +95,29 @@ async function scaffoldFromAnswers(answers: InitCommandOptions): Promise<void> {
   };
 
   const result = await scaffoldSecondBrainProject(scaffoldOptions);
-  printNextSteps(result, scaffoldOptions.defaultAgent ?? "codex");
+  await completeInit(result, scaffoldOptions.defaultAgent ?? "codex");
 }
 
-function printNextSteps(
+async function completeInit(
   result: { targetDir: string; gitInitialized: boolean },
   agent: AgentKind
-): void {
+): Promise<void> {
+  let registered = false;
+  try {
+    const outcome = await addVaultToRegistry(result.targetDir);
+    registered = outcome.added;
+  } catch {
+    // Registry is convenience, not core — never fail init because of it.
+  }
+
   const instructionsFile = getSchemaFilename(agent);
   const assistantName = getAgentDisplayName(agent);
 
   console.log("");
   console.log(`Your knowledge base is ready in ${result.targetDir}`);
+  if (registered) {
+    console.log("(Registered on this machine — see all vaults with `second-brain vaults`.)");
+  }
   console.log("");
   console.log("Here's what's in it:");
   console.log("  sources/inbox/          Drop new notes, PDFs, or links here");

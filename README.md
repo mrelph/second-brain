@@ -55,11 +55,12 @@ Run `second-brain --help` for the full command list.
 
 ## Commands
 
-- `init` — set up a new knowledge base (runs a short wizard by default)
+- `init` — set up a new knowledge base (runs a short wizard by default; auto-registers the new vault)
 - `doctor` — show a summary of your knowledge base and next steps
 - `schema` — refresh your assistant's instructions (`AGENTS.md` / `CLAUDE.md` / etc.)
 - `upgrade` — update your assistant's instructions to the latest version; your "Project Customizations" and "Assistant Observations" sections are preserved
 - `config` — show or change project settings in `.second-brain.json`
+- `vaults` — list, add, or remove the second-brain vaults known to this machine
 
 ## What's in the instruction file
 
@@ -91,6 +92,19 @@ second-brain doctor --json
 ```
 
 `.second-brain.json` is the contract: anything you can configure can be expressed there, and `init --config` will scaffold a project that fully reflects it. The conventional flow for an LLM-driven setup is interview-or-ingest → write JSON → `init --config <file>`.
+
+## The vault registry
+
+Every `init` automatically registers the new vault in `~/.second-brain/vaults.json`. This is a per-machine list — useful when you have several knowledge bases on one machine and want a tool (or an AI assistant) to know which folders are vaults.
+
+```sh
+second-brain vaults                        # list registered vaults
+second-brain vaults add /path/to/existing  # register a vault you didn't create here
+second-brain vaults remove /old/path       # forget one
+second-brain vaults list --json            # machine-readable
+```
+
+Vaults that no longer exist on disk show as `(missing)` in the list. The registry isn't synced — sync the vault folders themselves (git, Dropbox, iCloud) and run `vaults add` on the new machine, or just rely on the auto-registration when you next run `init`.
 
 ## Building binaries
 

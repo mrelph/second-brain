@@ -8,6 +8,7 @@ import { parseDoctorArgs, runDoctorCommand } from "./commands/doctor.ts";
 import { parseInitArgs, runInitCommand } from "./commands/init.ts";
 import { parseSchemaArgs, runSchemaCommand } from "./commands/schema.ts";
 import { parseUpgradeArgs, runUpgradeCommand } from "./commands/upgrade.ts";
+import { parseVaultsArgs, runVaultsCommand } from "./commands/vaults.ts";
 
 const CLI_VERSION = resolveCliVersion();
 
@@ -62,6 +63,11 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "vaults") {
+    await runVaultsCommand(parseVaultsArgs(rest));
+    return;
+  }
+
   throw new Error(`Unknown command: ${command}`);
 }
 
@@ -78,6 +84,7 @@ function printHelp(): void {
   console.log("  schema    Refresh your assistant's instructions — change agent, domain, style");
   console.log("  upgrade   Update your assistant's instructions to the latest version");
   console.log("  config    Show or change your knowledge base settings");
+  console.log("  vaults    List, add, or remove second-brain vaults known to this machine");
   console.log("");
   console.log("Quick start:");
   console.log("  second-brain init                   # guided setup");
@@ -94,6 +101,7 @@ function printHelp(): void {
   console.log("  upgrade   [--agent <kind>] [--dry-run] [--yes]");
   console.log("  config    [show|get|set|init] [key] [value]");
   console.log("  doctor    [--directory <path>] [--json]");
+  console.log("  vaults    [list|add|remove] [path] [--json]");
   console.log("");
   console.log("  Assistants: claude-code, codex, opencode, pi, generic");
 }
