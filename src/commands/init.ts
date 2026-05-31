@@ -10,6 +10,7 @@ import { scaffoldSecondBrainProject, type ScaffoldOptions } from "../core/projec
 import { addVaultToRegistry } from "../core/vaults.ts";
 import {
   AGENT_KINDS,
+  DEFAULT_AGENT,
   getAgentDisplayName,
   getSchemaFilename,
   type AgentKind,
@@ -95,7 +96,7 @@ async function scaffoldFromAnswers(answers: InitCommandOptions): Promise<void> {
   };
 
   const result = await scaffoldSecondBrainProject(scaffoldOptions);
-  await completeInit(result, scaffoldOptions.defaultAgent ?? "codex");
+  await completeInit(result, scaffoldOptions.defaultAgent ?? DEFAULT_AGENT);
 }
 
 async function completeInit(
@@ -259,7 +260,8 @@ async function promptAgent(): Promise<AgentKind> {
     const label = kind === "generic" ? "Any / not sure yet" : getAgentDisplayName(kind);
     console.log(`  ${i + 1}. ${label}`);
   }
-  const answer = await prompt("Pick a number or name", "1");
+  const defaultChoice = String(AGENT_KINDS.indexOf(DEFAULT_AGENT) + 1);
+  const answer = await prompt("Pick a number or name", defaultChoice);
   const asNumber = Number.parseInt(answer, 10);
   if (Number.isInteger(asNumber) && asNumber >= 1 && asNumber <= AGENT_KINDS.length) {
     return AGENT_KINDS[asNumber - 1]!;

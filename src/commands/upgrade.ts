@@ -1,8 +1,6 @@
-import { basename, relative, resolve } from "node:path";
+import { relative, resolve } from "node:path";
 import {
-  createDefaultConfig,
   findProjectRoot,
-  isConfigMissingError,
   loadConfig,
   parseAgentKind,
   saveConfig,
@@ -41,8 +39,14 @@ export async function runUpgradeCommand(options: UpgradeCommandOptions): Promise
 
 async function runUpgradeCommandInner(options: UpgradeCommandOptions): Promise<void> {
   const baseDir = resolve(process.cwd(), options.directory ?? ".");
-  const projectRoot = (await findProjectRoot(baseDir)) ?? baseDir;
-  const config = await loadConfigOrDefault(projectRoot);
+  const projectRoot = await findProjectRoot(baseDir);
+  if (!projectRoot) {
+    throw new Error(
+      "No second-brain knowledge base found here (or in any parent folder). " +
+        "Run `second-brain init` to create one."
+    );
+  }
+  const config = await loadConfig(projectRoot);
   const agent = options.agent ?? config.defaultAgent;
   const schemaState = await readSchemaState(projectRoot, agent);
   const generated = buildSchemaFile(projectRoot, config, agent);
@@ -159,17 +163,6 @@ export function parseUpgradeArgs(args: string[]): UpgradeCommandOptions {
   }
 
   return options;
-}
-
-async function loadConfigOrDefault(projectRoot: string): Promise<SecondBrainConfig> {
-  try {
-    return await loadConfig(projectRoot);
-  } catch (error: unknown) {
-    if (isConfigMissingError(error)) {
-      return createDefaultConfig({ projectName: basename(projectRoot), defaultAgent: "codex" });
-    }
-    throw error;
-  }
 }
 
 function nextArg(args: string[], index: number, flag: string): string {

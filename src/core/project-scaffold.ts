@@ -3,7 +3,7 @@ import { basename, join, relative } from "node:path";
 import { CONFIG_FILENAME, createDefaultConfig, type SecondBrainConfig } from "./config.ts";
 import { writeSchemaFile } from "./schema-file.ts";
 import { runGitInit } from "../utils/git.ts";
-import { type AgentKind, type WikiLinkStyle } from "../templates/schema.ts";
+import { DEFAULT_AGENT, type AgentKind, type WikiLinkStyle } from "../templates/schema.ts";
 import {
   renderDecisionsTemplate,
   renderFolderReadmeTemplate,
@@ -57,7 +57,7 @@ export async function scaffoldSecondBrainProject(
   const config =
     options.config ??
     createDefaultConfig({
-      defaultAgent: options.defaultAgent ?? "codex",
+      defaultAgent: options.defaultAgent ?? DEFAULT_AGENT,
       projectName: options.projectName?.trim() || basename(options.targetDir),
       ...(options.domain ? { domain: options.domain } : {}),
       ...(options.entityTypes ? { entityTypes: options.entityTypes } : {}),

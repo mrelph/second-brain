@@ -1,9 +1,7 @@
-import { basename, resolve } from "node:path";
+import { resolve } from "node:path";
 import {
-  createDefaultConfig,
   findProjectRoot,
   getConfigPath,
-  isConfigMissingError,
   loadConfig,
   parseAgentKind as parseAgentKindCore,
   saveConfig,
@@ -28,10 +26,16 @@ export async function runConfigCommand(options: ConfigCommandOptions): Promise<v
 
 async function runConfigCommandInner(options: ConfigCommandOptions): Promise<void> {
   const baseDir = resolve(process.cwd(), options.directory ?? ".");
-  const projectRoot = (await findProjectRoot(baseDir)) ?? baseDir;
+  const projectRoot = await findProjectRoot(baseDir);
+  if (!projectRoot) {
+    throw new Error(
+      "No second-brain knowledge base found here (or in any parent folder). " +
+        "Run `second-brain init` to create one."
+    );
+  }
 
   if (options.action === "show") {
-    const config = await loadOrCreate(projectRoot);
+    const config = await loadConfig(projectRoot);
     console.log(JSON.stringify(config, null, 2));
     return;
   }
@@ -41,13 +45,13 @@ async function runConfigCommandInner(options: ConfigCommandOptions): Promise<voi
       throw new Error("Missing key for config get");
     }
 
-    const config = await loadOrCreate(projectRoot);
+    const config = await loadConfig(projectRoot);
     console.log(formatConfigValue(readConfigValue(config, options.key)));
     return;
   }
 
   if (options.action === "init") {
-    const config = await promptForConfig(await loadOrCreate(projectRoot));
+    const config = await promptForConfig(await loadConfig(projectRoot));
     await saveConfig(projectRoot, config);
     console.log(`Updated ${getConfigPath(projectRoot)}`);
     return;
@@ -57,7 +61,7 @@ async function runConfigCommandInner(options: ConfigCommandOptions): Promise<voi
     throw new Error("Usage: second-brain config set <key> <value>");
   }
 
-  const config = await loadOrCreate(projectRoot);
+  const config = await loadConfig(projectRoot);
   const nextConfig = writeConfigValue(config, options.key, options.value);
   await saveConfig(projectRoot, nextConfig);
   console.log(`Updated ${getConfigPath(projectRoot)}`);
@@ -125,19 +129,6 @@ export function parseConfigArgs(args: string[]): ConfigCommandOptions {
   }
 
   throw new Error(`Unknown config action: ${action}`);
-}
-
-async function loadOrCreate(projectRoot: string): Promise<SecondBrainConfig> {
-  try {
-    return await loadConfig(projectRoot);
-  } catch (error: unknown) {
-    if (!isConfigMissingError(error)) {
-      throw error;
-    }
-    const config = createDefaultConfig({ projectName: basename(projectRoot), defaultAgent: "codex" });
-    await saveConfig(projectRoot, config);
-    return config;
-  }
 }
 
 async function promptForConfig(config: SecondBrainConfig): Promise<SecondBrainConfig> {

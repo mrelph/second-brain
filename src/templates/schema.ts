@@ -7,6 +7,12 @@ export const AGENT_KINDS = [
   "generic"
 ] as const;
 export type AgentKind = (typeof AGENT_KINDS)[number];
+/**
+ * Canonical fallback agent. Every code path that needs a default agent —
+ * the wizard prompt, config normalization, scaffolding, the JSON Schema —
+ * derives it from here so they can't drift apart.
+ */
+export const DEFAULT_AGENT: AgentKind = "codex";
 export const WIKI_LINK_STYLES = ["wikilinks", "markdown"] as const;
 export type WikiLinkStyle = (typeof WIKI_LINK_STYLES)[number];
 export const PAGE_NAMING_STYLES = ["title-case", "sentence-case", "kebab-case"] as const;

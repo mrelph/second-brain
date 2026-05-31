@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import {
   AGENT_KINDS,
+  DEFAULT_AGENT,
   PAGE_NAMING_STYLES,
   SCHEMA_VERSION,
   WIKI_LINK_STYLES,
@@ -55,7 +56,7 @@ export function createDefaultConfig(
 ): SecondBrainConfig {
   return {
     categories: [],
-    defaultAgent: options.defaultAgent ?? "codex",
+    defaultAgent: options.defaultAgent ?? DEFAULT_AGENT,
     projectName: options.projectName,
     schema: {
       commonQueries: cleanStringList(options.commonQueries),
@@ -133,7 +134,7 @@ export function normalizeConfig(
           .map((value) => String(value).trim())
           .filter((value, index, values) => value.length > 0 && values.indexOf(value) === index)
       : [],
-    defaultAgent: isAgentKind(config.defaultAgent) ? config.defaultAgent : "codex",
+    defaultAgent: isAgentKind(config.defaultAgent) ? config.defaultAgent : DEFAULT_AGENT,
     projectName,
     schema: {
       commonQueries: cleanStringList(config.schema?.commonQueries),
@@ -221,7 +222,7 @@ export function getConfigJsonSchema(): Record<string, unknown> {
       },
       defaultAgent: {
         enum: [...AGENT_KINDS],
-        default: "codex",
+        default: DEFAULT_AGENT,
         description: "Which AI coding assistant maintains this knowledge base."
       },
       categories: {

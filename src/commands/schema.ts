@@ -1,8 +1,6 @@
-import { basename, resolve } from "node:path";
+import { resolve } from "node:path";
 import {
-  createDefaultConfig,
   findProjectRoot,
-  isConfigMissingError,
   loadConfig,
   parseAgentKind,
   saveConfig,
@@ -39,9 +37,19 @@ export async function runSchemaCommand(options: SchemaCommandOptions): Promise<v
 
 async function runSchemaCommandInner(options: SchemaCommandOptions): Promise<void> {
   const baseDir = resolve(process.cwd(), options.directory ?? ".");
-  const projectRoot = (await findProjectRoot(baseDir)) ?? baseDir;
-  const config = await loadConfigOrDefault(projectRoot);
-  const interactive = options.interactive || !options.agent || !options.domain || !options.styleGuide;
+  const projectRoot = await findProjectRoot(baseDir);
+  if (!projectRoot) {
+    throw new Error(
+      "No second-brain knowledge base found here (or in any parent folder). " +
+        "Run `second-brain init` to create one."
+    );
+  }
+  const config = await loadConfig(projectRoot);
+  // Only prompt when explicitly asked (-i) or when invoked bare on a TTY.
+  // Passing any flag means "do exactly this"; unspecified values come from
+  // the saved config, so a scripted `schema --agent …` never blocks on a prompt.
+  const interactive =
+    options.interactive || (!hasAnySchemaFlag(options) && Boolean(process.stdin.isTTY));
   const agent = options.agent ?? (interactive ? await promptForAgent(config.defaultAgent) : config.defaultAgent);
   const domain =
     options.domain ??
@@ -211,15 +219,18 @@ export function parseSchemaArgs(args: string[]): SchemaCommandOptions {
   return options;
 }
 
-async function loadConfigOrDefault(projectRoot: string): Promise<SecondBrainConfig> {
-  try {
-    return await loadConfig(projectRoot);
-  } catch (error: unknown) {
-    if (isConfigMissingError(error)) {
-      return createDefaultConfig({ projectName: basename(projectRoot), defaultAgent: "codex" });
-    }
-    throw error;
-  }
+function hasAnySchemaFlag(options: SchemaCommandOptions): boolean {
+  return (
+    options.agent !== undefined ||
+    options.domain !== undefined ||
+    options.styleGuide !== undefined ||
+    options.wikiLinkStyle !== undefined ||
+    options.frontmatter !== undefined ||
+    options.pageNaming !== undefined ||
+    options.sourceMode !== undefined ||
+    options.categories !== undefined ||
+    options.directory !== undefined
+  );
 }
 
 async function promptForAgent(defaultAgent: AgentKind): Promise<AgentKind> {
