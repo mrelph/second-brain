@@ -6,3 +6,5 @@ dist-bin/
 Thumbs.db
 .env
 .codex/
+# Generated test vault (output of running `second-brain init` locally), not source
+Documents/
